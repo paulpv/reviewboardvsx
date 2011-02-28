@@ -1,0 +1,143 @@
+#summary Frequently Asked Questions
+#labels Featured
+
+= Frequently Asked Questions =
+
+== General ==
+
+=== What is ReviewBoardVsx? ===
+ReviewBoardVsx is a Visual Studio Extension that allows Code Reviews via ReviewBoard.
+
+The current mission of this project is:
+ # Replicate as much post-review behavior as possible in Visual Studio.
+ # Leverage/Reuse as much as possible the hard work already put in to post-review.
+
+The above mission statement is the driving force behind many of the design decisions `[`and performance problems`]` mentioned below.
+
+The mission statement may change and re-prioritize some design decisions as user feedback is received.
+
+=== What is a Code Review? ===
+Are you kidding me? :)
+
+See:
+ * http://www.reviewboard.org/docs/manual/1.5/users/getting-started/what-is-code-review/
+ * http://code.google.com/p/support/wiki/CodeReviews
+
+=== What is ReviewBoard? ===
+See http://www.reviewboard.org/docs/manual/1.5/users/
+
+=== What is post-review? ===
+post-review.exe is a command-line client that "posts" code reviews to a ReviewBoard server.<br>
+post-review is part of ReviewBoard's "RBTools" tool set.
+
+See http://www.reviewboard.org/docs/manual/1.5/users/tools/post-review/
+
+=== How do I install post-review.exe? ===
+ # Install Python 2.6: *python-2.6.6.msi*<br>http://www.python.org/download/
+ # Install Python 2.6 setuptools: *setuptools-0.6c11.win32-py2.6.exe*<br>http://pypi.python.org/pypi/setuptools#credits
+ # Install diffutils: *diffutils-2.8.7-1.exe*<br>http://gnuwin32.sourceforge.net/packages/diffutils.htm
+ # Install an SCM client:
+  * SVN: CollabNet SVN Client: *CollabNetSubversion-client-1.6.6-4.win32.exe*<br>http://www.open.collab.net/downloads/subversion/
+ # Add the following to your PATH (change the below paths as appropriate for your machine):
+{{{
+C:\python26\scripts
+C:\Program Files\GnuWin32\bin
+C:\Program Files\CollabNet\Subversion Client
+}}}
+ # Finally, install RBTools (post-review.exe):
+ Open a fresh command-prompt window and run:
+{{{
+easy_install -U RBTools
+}}}
+
+Before you use ReviewBoardVsx, make sure that you can post-review.exe from the command-line at least one file in the Visual Studio solution you will be working with.
+
+== Technical ==
+
+=== Why is ReviewBoardVsx so slow? ===
+Because `[`, for now,`]` when you launch "ReviewBoard" it checks for file changes by "post-review"ing every individual file in your Visual Studio Solution.
+
+=== Can't you just scan the solution *folder* instead of individual *files*? ===
+
+I wish. Visual Studio Solutions and C++ Projects `[`and perhaps other components`]` let you add items that exist above/outside of the Solution/Project root folder.
+
+Imagine the following Visual Studio Solution containing a C++ Project:
+{{{
+C:
+└───myproject
+    │    *license.txt
+    │    ...
+    ├─── inc
+    │    └─── *common.h
+    │         ...
+    ├─── mysolution
+    │    │    mysolution.sln
+    │    └─── cppproject
+    │         cppproject.vsproj
+    └─── ...
+}}}
+mysolution.sln has references to the modified file license.txt.<br>
+cppproject.vcproj has references to the modified file common.h.
+
+Now, imagine doing the following:
+{{{
+cd c:\myproject\mysolution\
+post-review.exe
+}}}
+
+post-review.exe will only see items that exist in c:\myproject\mysolution\ *and below*; it will *not* see license.txt or common.h.
+
+Also keep in mind that a Visual Studio Solution/Project can *exclude* files that are in the SCM. This means that post-review *will see* files that are *excluded* from the Solution/Project.
+
+post-reviewing from c:\myproject would pull in *every* file, not just the few referenced by the Solution.
+
+It is important to realize that *this is a very desirable feature* of Visual Studio, but it causes problems with post-review and the SCM tools that do not know about the internal dependencies of a Visual Studio Solution/Project.<br>It is almost unrealistic to expect the problem to be solved by improving post-review or the SCM tools.
+
+Put another way, the reason for scanning individual files is quite simply this:
+ * Visual Studio can reference individual files outside of the known SCM tree.
+ * Any solution to this problem must be able to operate at the individual file level.
+
+The trick is, how to do this fast?
+
+There are really two orthogonal problems here:
+ # Be able to find changes in individual Solution/Project files
+ # Do it fast
+
+Below are some possible workarounds, but so far none of them seem desirable or doable in the immediate future:
+ # Background post-review the solution and cache the detected changes, refreshing the cache when a file is saved.<br>This seems the most promising and is similar to how AnhkSVN works.
+ # Since many popular Project types (C# and VB) don't support outside references, only do the time consuming post-review of individual files in Solutions and Projects that do support outside references.<br>For all other Projects just call the SCM diff tool directly.<br>This doesn't actually solve the problem.
+ # Utilize multi-select to only post-review the selected items.<br>This doesn't solve the most common use case of wanting to code review the entire solution.
+ # Rewrite post-review.exe in C#, starting with SVN.<br>This also doesn't really solve the problem.
+ # Use some crazy smart map/reduce shortest-path concept that finds all solution changes using the smallest combination of folders and files.
+
+All the solutions would still eventually need to pass the paths to post-review `[`or the underlying SCM tool or some C# implementation of the SCM tool`]` to detect the changes. Worst case, *all* files will still need to be individually tested for changes and no performance gain will be result.
+
+#1 is the most promising, but one of the  most complex; I will start investigating this soon.  
+
+=== Why does ReviewBoardVsx use post-review.exe? ===
+Because ReviewBoardVsx is intended to support every SCM that post-review.exe supports.
+
+Post-Review is a mildly complicated 2800+ line program that supports *many* SCMs, each having their own quirks. The ReviewBoardVsx project does not currently have enough development resource to rewrite/port, test, and maintain a full C# "copy" of everything post-review.exe does. Over time C# code can be added to replace certain post-review.exe requirements, but until 100% of the post-review features are implemented in C#, ReviewBoardVsx will always have *some* dependency on post-review.
+
+Improvements to post-review itself are also in the works; perhaps those improvements to help solve ReviewBoardVsx's performance problem.
+
+=== Why don't you use SharpSvn? ===
+Because ReviewBoardVsx is intended to support every SCM that post-review.exe supports...not just SVN.
+
+Writing a C# version of post-review starting with using SharpSvn sound nice, but this was attempted and hit a dead-end.
+
+The real reason ReviewBoardVsx doesn't use SharpSvn is because the diff output of "svn stat" needs to be massaged a bit before it can be uploaded to ReviewBoard.
+
+post-review.exe accomplishes this by calling "svn diff --diff-cmd=diff" which uses the GNU diff tool in your PATH. I cannot find a way to get SharpSvn to honor the "diff-cmd" argument and use the GNU diff tool. I even considered porting GNU diff to C#, but that probably wouldn't work since GNU diff needs to be called *by* "svn diff", not *after*. So far I have been unable to come up with a 
+
+SharpSvn solution that outputs a diff format compatible with ReviewBoard.
+
+Solve this and you can implement a a nice full C# SharpSvn based ReviewBoard solution...but you will only be supporting *one* of SCMs that post-review supports.
+
+=== Why don't you just post-review the [multi] selected items? ===
+Riddle me this: If a folder has 3 files in it, and I select both the folder and a one file, should I post-review just the single file, or *every* file in and below that folder?
+
+I understand the desire of such a feature, and was in fact what I was hoping to achieve, but the above dilemma exploded in to a more complicated problem that I would rather solve later after I fix bigger issues.
+
+== You stole some code from AnhkSVN! ==
+I shamelessly did pick and choose a few concepts and actual files from AnkhSVN, but AnkhSVN is Open Source and all licensing headers remain intact in the few copied files used by this project.
