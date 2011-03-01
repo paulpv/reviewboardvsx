@@ -50,6 +50,11 @@ easy_install -U RBTools
 
 Before you use ReviewBoardVsx, make sure that you can post-review.exe from the command-line at least one file in the Visual Studio solution you will be working with.
 
+=== Does ReviewBoardVsx work with XYN SCM? ===
+The general answer is that if it works in post-review then it should work in ReviewBoardVsx.
+
+So far only SVN has been confirmed to work. I you use another SCM please contact the developers to let them know of any success or failure. Feel free to open an Issue if you find one.
+
 == Technical ==
 
 === Why is ReviewBoardVsx so slow? ===
