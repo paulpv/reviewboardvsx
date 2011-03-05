@@ -150,6 +150,9 @@
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
     <Compile Include="Settings.cs" />
+    <Compile Include="Tracker\MySolutionTracker.cs" />
+    <Compile Include="Tracker\ProjectDocumentsListener.cs" />
+    <Compile Include="Tracker\SolutionListener.cs" />
     <Compile Include="UI\FormSubmit.cs">
       <SubType>Form</SubType>
     </Compile>
