@@ -13,22 +13,27 @@ namespace ReviewBoardVsx.Package
     //[ComVisible(true)]
     public class MyPackage : Microsoft.VisualStudio.Shell.Package
     {
-        protected void TraceEnter(String methodName)
+        private String NormalizeMethodName(String methodName)
         {
+            if (!methodName.EndsWith(")"))
+            {
+                methodName += "(...)";
+            }
             if (!methodName.Equals("()") && !methodName.StartsWith("."))
             {
                 methodName = "." + methodName;
             }
-            Trace.WriteLine(string.Format("+{0}{1}", this.ToString(), methodName));
+            return methodName;
         }
 
-        protected void TraceLeave(String methodName)
+        public void TraceEnter(String methodName)
         {
-            if (!methodName.Equals("()") && !methodName.StartsWith("."))
-            {
-                methodName = "." + methodName;
-            }
-            Trace.WriteLine(string.Format("-{0}{1}", this.ToString(), methodName));
+            Trace.WriteLine(string.Format("+{0}{1}", this.ToString(), NormalizeMethodName(methodName)));
+        }
+
+        public void TraceLeave(String methodName)
+        {
+            Trace.WriteLine(string.Format("-{0}{1}", this.ToString(), NormalizeMethodName(methodName)));
         }
 
         /// <summary>

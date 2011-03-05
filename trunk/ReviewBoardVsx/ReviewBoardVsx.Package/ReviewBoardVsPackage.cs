@@ -9,6 +9,7 @@ using Microsoft.VisualStudio.Shell.Interop;
 using ReviewBoardVsx.UI;
 using ReviewBoardVsx.Ids;
 using Ankh.VSPackage.Attributes;
+using ReviewBoardVsx.Package.Tracker;
 
 namespace ReviewBoardVsx.Package
 {
@@ -27,18 +28,6 @@ namespace ReviewBoardVsx.Package
     // This attribute is needed to let the shell know that this package exposes some menus.
     [ProvideMenuResource("1000", 1)]
 
-#if false
-    // This attribute is used to register the informations needed to show the this package
-    // in the Help/About dialog of Visual Studio.
-#if VS2010
-    [InstalledProductRegistration("#110", "#112", MyPackageLoadKey.Version, IconResourceID = 400)]
-#elif VS2008
-    [InstalledProductRegistration(false, "#110", "#112", MyPackageLoadKey.Version, IconResourceID = 400)]
-#else
-    [InstalledProductRegistration(...)]
-#endif
-#endif
-
     // In order be loaded inside Visual Studio in a machine that has not the VS SDK installed, 
     // package needs to have a valid load key (it can be requested at 
     // http://msdn.microsoft.com/vstudio/extend/). This attributes tells the shell that this 
@@ -48,6 +37,8 @@ namespace ReviewBoardVsx.Package
     [Guid(MyPackageLoadKey.PackageId)]
     public sealed class ReviewBoardVsPackage : MyPackage
     {
+        MySolutionTracker solutionTracker;
+
         /// <summary>
         /// Default constructor of the package.
         /// Inside this method you can place any initialization code that does not require 
@@ -70,6 +61,9 @@ namespace ReviewBoardVsx.Package
             TraceEnter("Initialize()");
 
             base.Initialize();
+
+            solutionTracker = new MySolutionTracker(this);
+            solutionTracker.Initialize();
 
             OleMenuCommandService mcs = GetService<IMenuCommandService>() as OleMenuCommandService;
             if (null != mcs)
