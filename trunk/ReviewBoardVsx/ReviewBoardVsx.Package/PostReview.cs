@@ -15,6 +15,26 @@ namespace ReviewBoardVsx.Package
         public static readonly string PostReviewRegExSubmitOk = @"Review request #(?<id>\d*?) posted\..*(?<uri>http(s?)://.*?/r/\d*)";
         public static readonly string PostReviewRegExDiffExternal = "[\"svn: '(.*?)' is not under version control\n\"]";
 
+        public class SubmitItem
+        {
+            public string FullPath { get; protected set; }
+            public string Project { get; protected set; }
+            public DiffType DiffType { get; protected set; }
+            public string Diff { get; protected set; }
+
+            public SubmitItem(string fullPath, string project, DiffType diffType, string diff)
+            {
+                FullPath = fullPath;
+                Project = project;
+                DiffType = diffType;
+                Diff = diff;
+            }
+        }
+
+        public class SubmitItemCollection : List<PostReview.SubmitItem>
+        {
+        }
+
         public class PostReviewException : Exception
         {
             public int ExitCode { get; protected set; }

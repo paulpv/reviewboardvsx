@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Diagnostics;
+using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using ShellConstants = Microsoft.VisualStudio.Shell.Interop.Constants;
 
-namespace Microsoft.VisualStudio.Package
+namespace ReviewBoardVsx.Package.Tracker
 {
     /// <summary>
     /// Most of this class was shamelessly copied from:
@@ -13,22 +14,17 @@ namespace Microsoft.VisualStudio.Package
     [CLSCompliant(false)]
     public abstract class ProjectDocumentsListener : IVsTrackProjectDocumentsEvents2, IDisposable
     {
-        protected uint EventsCookie { get { return eventsCookie; } }
-        protected IServiceProvider ServiceProvider { get; private set; }
-        protected IVsTrackProjectDocuments2 ProjectDocumentTracker2 { get; private set; }
-
+        private IVsTrackProjectDocuments2 projectDocumentTracker2;
         private uint eventsCookie = (uint)ShellConstants.VSCOOKIE_NIL;
+
         private bool isDisposed;
         private static volatile object Mutex = new object();
 
         protected ProjectDocumentsListener(IServiceProvider serviceProvider)
         {
-            ServiceProvider = serviceProvider;
-            ProjectDocumentTracker2 = serviceProvider.GetService(typeof(SVsTrackProjectDocuments)) as IVsTrackProjectDocuments2;
-
-            Debug.Assert(ProjectDocumentTracker2 != null, "Could not get the IVsTrackProjectDocuments2 object from the services exposed by this project");
-
-            if (ProjectDocumentTracker2 == null)
+            projectDocumentTracker2 = serviceProvider.GetService(typeof(SVsTrackProjectDocuments)) as IVsTrackProjectDocuments2;
+            Debug.Assert(projectDocumentTracker2 != null, "Could not get the IVsTrackProjectDocuments2 object from the services exposed by this project");
+            if (projectDocumentTracker2 == null)
             {
                 throw new InvalidOperationException();
             }
@@ -58,27 +54,27 @@ namespace Microsoft.VisualStudio.Package
             GC.SuppressFinalize(this);
         }
 
-        public void Initialize()
-        {
-            if (ProjectDocumentTracker2 != null)
-            {
-                ErrorHandler.ThrowOnFailure(ProjectDocumentTracker2.AdviseTrackProjectDocumentsEvents(this, out eventsCookie));
-            }
-        }
-
         protected virtual void Dispose(bool disposing)
         {
             if (!isDisposed)
             {
                 lock (Mutex)
                 {
-                    if (disposing && eventsCookie != (uint)ShellConstants.VSCOOKIE_NIL && ProjectDocumentTracker2 != null)
+                    if (disposing && projectDocumentTracker2 != null && eventsCookie != (uint)ShellConstants.VSCOOKIE_NIL)
                     {
-                        ErrorHandler.ThrowOnFailure(ProjectDocumentTracker2.UnadviseTrackProjectDocumentsEvents((uint)eventsCookie));
+                        ErrorHandler.ThrowOnFailure(projectDocumentTracker2.UnadviseTrackProjectDocumentsEvents((uint)eventsCookie));
                         eventsCookie = (uint)ShellConstants.VSCOOKIE_NIL;
                     }
                     isDisposed = true;
                 }
+            }
+        }
+
+        public void Initialize()
+        {
+            if (projectDocumentTracker2 != null && eventsCookie == (uint)ShellConstants.VSCOOKIE_NIL)
+            {
+                ErrorHandler.ThrowOnFailure(projectDocumentTracker2.AdviseTrackProjectDocumentsEvents(this, out eventsCookie));
             }
         }
     }

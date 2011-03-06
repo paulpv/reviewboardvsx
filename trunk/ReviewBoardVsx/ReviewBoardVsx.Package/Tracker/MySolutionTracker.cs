@@ -14,10 +14,7 @@ namespace ReviewBoardVsx.Package.Tracker
 {
     /// <summary>
     /// Ideas taken from:
-    /// SolutionListener.cs
     /// Project.cs
-    /// ProjectDocumentsListener.cs
-    /// ProjectDocumentsChangeEventArgs.cs
     /// 
     /// See Also:
     /// http://msdn.microsoft.com/en-us/library/bb165701.aspx
@@ -44,6 +41,10 @@ namespace ReviewBoardVsx.Package.Tracker
         protected readonly MyPackage package;
         private readonly MyProjectTracker projectTracker;
 
+        /// <summary>
+        /// Ideas came from:
+        /// http://www.java2s.com/Open-Source/CSharp/Development/StyleCop/Microsoft/VisualStudio/Shell/Flavor/Project.cs.htm
+        /// </summary>
         class MyProjectTracker : ProjectDocumentsListener
         {
             protected readonly MyPackage package;
@@ -57,13 +58,13 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    package.TraceEnter("OnQueryAddFiles");
+                    MyPackage.TraceEnter(this, "OnQueryAddFiles");
                     //AddFilesIfChanged(rgpProjects, rgFirstIndices, rgpszMkDocuments);
                     return VSConstants.S_OK;
                 }
                 finally
                 {
-                    package.TraceLeave("OnQueryAddFiles");
+                    MyPackage.TraceLeave(this, "OnQueryAddFiles");
                 }
             }
 
@@ -71,12 +72,12 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    package.TraceEnter("OnAfterAddFilesEx");
+                    MyPackage.TraceEnter(this, "OnAfterAddFilesEx");
                     return VSConstants.S_OK;
                 }
                 finally
                 {
-                    package.TraceLeave("OnAfterAddFilesEx");
+                    MyPackage.TraceLeave(this, "OnAfterAddFilesEx");
                 }
             }
 
@@ -84,7 +85,7 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    package.TraceEnter("OnQueryRenameFiles");
+                    MyPackage.TraceEnter(this, "OnQueryRenameFiles");
 
                     string oldname, newname;
                     for (int i = 0; i < cFiles; i++)
@@ -97,7 +98,7 @@ namespace ReviewBoardVsx.Package.Tracker
                 }
                 finally
                 {
-                    package.TraceLeave("OnQueryRenameFiles");
+                    MyPackage.TraceLeave(this, "OnQueryRenameFiles");
                 }
             }
 
@@ -105,12 +106,12 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    package.TraceEnter("OnAfterRenameFiles");
+                    MyPackage.TraceEnter(this, "OnAfterRenameFiles");
                     return VSConstants.S_OK;
                 }
                 finally
                 {
-                    package.TraceLeave("OnAfterRenameFiles");
+                    MyPackage.TraceLeave(this, "OnAfterRenameFiles");
                 }
             }
 
@@ -118,7 +119,7 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    package.TraceEnter("OnQueryRemoveFiles");
+                    MyPackage.TraceEnter(this, "OnQueryRemoveFiles");
                     string name;
                     for (int i = 0; i < cFiles; i++)
                     {
@@ -129,7 +130,7 @@ namespace ReviewBoardVsx.Package.Tracker
                 }
                 finally
                 {
-                    package.TraceLeave("OnQueryRemoveFiles");
+                    MyPackage.TraceLeave(this, "OnQueryRemoveFiles");
                 }
             }
 
@@ -137,12 +138,12 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    package.TraceEnter("OnAfterRemoveFiles");
+                    MyPackage.TraceEnter(this, "OnAfterRemoveFiles");
                     return VSConstants.S_OK;
                 }
                 finally
                 {
-                    package.TraceLeave("OnAfterRemoveFiles");
+                    MyPackage.TraceLeave(this, "OnAfterRemoveFiles");
                 }
             }
 
@@ -150,12 +151,12 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    package.TraceEnter("OnQueryAddDirectories");
+                    MyPackage.TraceEnter(this, "OnQueryAddDirectories");
                     return VSConstants.S_OK;
                 }
                 finally
                 {
-                    package.TraceLeave("OnQueryAddDirectories");
+                    MyPackage.TraceLeave(this, "OnQueryAddDirectories");
                 }
             }
 
@@ -163,12 +164,12 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    package.TraceEnter("OnAfterAddDirectoriesEx");
+                    MyPackage.TraceEnter(this, "OnAfterAddDirectoriesEx");
                     return VSConstants.S_OK;
                 }
                 finally
                 {
-                    package.TraceLeave("OnAfterAddDirectoriesEx");
+                    MyPackage.TraceLeave(this, "OnAfterAddDirectoriesEx");
                 }
             }
 
@@ -176,12 +177,12 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    package.TraceEnter("OnQueryRenameDirectories");
+                    MyPackage.TraceEnter(this, "OnQueryRenameDirectories");
                     return VSConstants.S_OK;
                 }
                 finally
                 {
-                    package.TraceLeave("OnQueryRenameDirectories");
+                    MyPackage.TraceLeave(this, "OnQueryRenameDirectories");
                 }
             }
 
@@ -189,12 +190,12 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    package.TraceEnter("OnAfterRemoveDirectories");
+                    MyPackage.TraceEnter(this, "OnAfterRemoveDirectories");
                     return VSConstants.S_OK;
                 }
                 finally
                 {
-                    package.TraceLeave("OnAfterRemoveDirectories");
+                    MyPackage.TraceLeave(this, "OnAfterRemoveDirectories");
                 }
             }
 
@@ -202,12 +203,12 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    package.TraceEnter("OnQueryRemoveDirectories");
+                    MyPackage.TraceEnter(this, "OnQueryRemoveDirectories");
                     return VSConstants.S_OK;
                 }
                 finally
                 {
-                    package.TraceLeave("OnQueryRemoveDirectories");
+                    MyPackage.TraceLeave(this, "OnQueryRemoveDirectories");
                 }
             }
 
@@ -215,12 +216,12 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    package.TraceEnter("OnAfterRenameDirectories");
+                    MyPackage.TraceEnter(this, "OnAfterRenameDirectories");
                     return VSConstants.S_OK;
                 }
                 finally
                 {
-                    package.TraceLeave("OnAfterRenameDirectories");
+                    MyPackage.TraceLeave(this, "OnAfterRenameDirectories");
                 }
             }
 
@@ -228,12 +229,12 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    package.TraceEnter("OnAfterSccStatusChanged");
+                    MyPackage.TraceEnter(this, "OnAfterSccStatusChanged");
                     return VSConstants.S_OK;
                 }
                 finally
                 {
-                    package.TraceLeave("OnAfterSccStatusChanged");
+                    MyPackage.TraceLeave(this, "OnAfterSccStatusChanged");
                 }
             }
 
@@ -300,13 +301,13 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                package.TraceEnter("Initialize");
+                MyPackage.TraceEnter(this, "Initialize()");
                 base.Initialize();
                 projectTracker.Initialize();
             }
             finally
             {
-                package.TraceLeave("Initialize");
+                MyPackage.TraceLeave(this, "Initialize()");
             }
         }
 
@@ -314,13 +315,13 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                package.TraceEnter("Dispose");
+                MyPackage.TraceEnter(this, "Dispose(" + disposing + ")");
                 projectTracker.Dispose();
                 base.Dispose(disposing);
             }
             finally
             {
-                package.TraceLeave("Dispose");
+                MyPackage.TraceLeave(this, "Dispose(" + disposing + ")");
             }
         }
 
@@ -328,17 +329,19 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                package.TraceEnter("OnAfterOpenSolution");
+                MyPackage.TraceEnter(this, "OnAfterOpenSolution(" + pUnkReserved + ", " + fNewSolution + ")");
                 lock (filesChanged)
                 {
                     filesChanged.Clear();
                 }
-                // TODO:(pv) Start crawling the solution items
+
+                Debug.WriteLine("TODO:(pv) Start crawling the solution items");
+
                 return VSConstants.S_OK;
             }
             finally
             {
-                package.TraceLeave("OnAfterOpenSolution");
+                MyPackage.TraceLeave(this, "OnAfterOpenSolution(" + pUnkReserved + ", " + fNewSolution + ")");
             }
         }
 
@@ -346,19 +349,19 @@ namespace ReviewBoardVsx.Package.Tracker
         /// The project has been opened.
         /// </summary>
         /// <param name="hierarchy">Pointer to the IVsHierarchy interface of the project being loaded.</param>
-        /// <param name="added"> true if the project is added to the solution after the solution is opened. false if the project is added to the solution while the solution is being opened.</param>
+        /// <param name="added">1 if the project is added to the solution after the solution is opened. 0 if the project is added to the solution while the solution is being opened.</param>
         /// <returns></returns>
         public override int OnAfterOpenProject(IVsHierarchy hierarchy, int added)
         {
             try
             {
-                package.TraceEnter("OnAfterOpenProject");
+                MyPackage.TraceEnter(this, "OnAfterOpenProject(" + hierarchy + ", " + added + ")");
                 // TODO:(pv) Start crawling the project items
                 return VSConstants.S_OK;
             }
             finally
             {
-                package.TraceLeave("OnAfterOpenProject");
+                MyPackage.TraceLeave(this, "OnAfterOpenProject(" + hierarchy + ", " + added + ")");
             }
         }
 
@@ -366,13 +369,13 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                package.TraceEnter("OnAfterRenameProject");
+                MyPackage.TraceEnter(this, "OnAfterRenameProject(" + hierarchy + ")");
                 // TODO:(pv) Rename the project item
                 return VSConstants.S_OK;
             }
             finally
             {
-                package.TraceLeave("OnAfterRenameProject");
+                MyPackage.TraceLeave(this, "OnAfterRenameProject(" + hierarchy + ")");
             }
         }
 
@@ -380,19 +383,19 @@ namespace ReviewBoardVsx.Package.Tracker
         /// The project is about to be closed.
         /// </summary>
         /// <param name="hierarchy">Pointer to the IVsHierarchy interface of the project being closed.</param>
-        /// <param name="removed">true if the project was removed from the solution before the solution was closed. false if the project was removed from the solution while the solution was being closed.</param>
+        /// <param name="removed">1 if the project was removed from the solution before the solution was closed. 0 if the project was removed from the solution while the solution was being closed.</param>
         /// <returns></returns>
         public override int OnBeforeCloseProject(IVsHierarchy hierarchy, int removed)
         {
             try
             {
-                package.TraceEnter("OnBeforeCloseProject");
+                MyPackage.TraceEnter(this, "OnBeforeCloseProject(" + hierarchy + ", " + removed + ")");
                 // TODO:(pv) Remove the project items
                 return VSConstants.S_OK;
             }
             finally
             {
-                package.TraceLeave("OnBeforeCloseProject");
+                MyPackage.TraceLeave(this, "OnBeforeCloseProject(" + hierarchy + ", " + removed + ")");
             }
         }
 
@@ -400,12 +403,12 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                package.TraceEnter("OnQueryCloseProject");
+                MyPackage.TraceEnter(this, "OnQueryCloseProject(" + hierarchy + ", " + removing + ", " + cancel + ")");
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                package.TraceLeave("OnQueryCloseProject");
+                MyPackage.TraceLeave(this, "OnQueryCloseProject(" + hierarchy + ", " + removing + ", " + cancel + ")");
             }
         }
 
@@ -413,12 +416,12 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                package.TraceEnter("OnQueryCloseSolution");
+                MyPackage.TraceEnter(this, "OnQueryCloseSolution(" + pUnkReserved + ", " + cancel + ")");
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                package.TraceLeave("OnQueryCloseSolution");
+                MyPackage.TraceLeave(this, "OnQueryCloseSolution(" + pUnkReserved + ", " + cancel + ")");
             }
         }
 
@@ -426,7 +429,7 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                package.TraceEnter("OnBeforeCloseSolution");
+                MyPackage.TraceEnter(this, "OnBeforeCloseSolution(" + pUnkReserved + ")");
                 lock (filesChanged)
                 {
                     filesChanged.Clear();
@@ -435,7 +438,7 @@ namespace ReviewBoardVsx.Package.Tracker
             }
             finally
             {
-                package.TraceLeave("OnBeforeCloseSolution");
+                MyPackage.TraceLeave(this, "OnBeforeCloseSolution(" + pUnkReserved + ")");
             }
         }
 
@@ -443,12 +446,12 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                package.TraceEnter("OnAfterCloseSolution");
+                MyPackage.TraceEnter(this, "OnAfterCloseSolution(" + reserved + ")");
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                package.TraceLeave("OnAfterCloseSolution");
+                MyPackage.TraceLeave(this, "OnAfterCloseSolution(" + reserved + ")");
             }
         }
 
@@ -456,12 +459,12 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                package.TraceEnter("OnAfterClosingChildren");
+                MyPackage.TraceEnter(this, "OnAfterClosingChildren(" + hierarchy + ")");
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                package.TraceLeave("OnAfterClosingChildren");
+                MyPackage.TraceLeave(this, "OnAfterClosingChildren(" + hierarchy + ")");
             }
         }
 
@@ -469,12 +472,12 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                package.TraceEnter("OnAfterLoadProject");
+                MyPackage.TraceEnter(this, "OnAfterLoadProject(" + stubHierarchy + ", " + realHierarchy + ")");
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                package.TraceLeave("OnAfterLoadProject");
+                MyPackage.TraceLeave(this, "OnAfterLoadProject(" + stubHierarchy + ", " + realHierarchy + ")");
             }
         }
 
@@ -482,12 +485,12 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                package.TraceEnter("OnAfterMergeSolution");
+                MyPackage.TraceEnter(this, "OnAfterMergeSolution(" + pUnkReserved + ")");
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                package.TraceLeave("OnAfterMergeSolution");
+                MyPackage.TraceLeave(this, "OnAfterMergeSolution(" + pUnkReserved + ")");
             }
         }
 
@@ -495,12 +498,12 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                package.TraceEnter("OnAfterOpeningChildren");
+                MyPackage.TraceEnter(this, "OnAfterOpeningChildren(" + hierarchy + ")");
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                package.TraceLeave("OnAfterOpeningChildren");
+                MyPackage.TraceLeave(this, "OnAfterOpeningChildren(" + hierarchy + ")");
             }
         }
 
@@ -508,12 +511,12 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                package.TraceEnter("OnBeforeClosingChildren");
+                MyPackage.TraceEnter(this, "OnBeforeClosingChildren(" + hierarchy + ")");
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                package.TraceLeave("OnBeforeClosingChildren");
+                MyPackage.TraceLeave(this, "OnBeforeClosingChildren(" + hierarchy + ")");
             }
         }
 
@@ -521,38 +524,38 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                package.TraceEnter("OnBeforeOpeningChildren");
+                MyPackage.TraceEnter(this, "OnBeforeOpeningChildren(" + hierarchy + ")");
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                package.TraceLeave("OnBeforeOpeningChildren");
+                MyPackage.TraceLeave(this, "OnBeforeOpeningChildren(" + hierarchy + ")");
             }
         }
 
-        public override int OnBeforeUnloadProject(IVsHierarchy realHierarchy, IVsHierarchy rtubHierarchy)
+        public override int OnBeforeUnloadProject(IVsHierarchy realHierarchy, IVsHierarchy stubHierarchy)
         {
             try
             {
-                package.TraceEnter("OnBeforeUnloadProject");
+                MyPackage.TraceEnter(this, "OnBeforeUnloadProject(" + realHierarchy + ", " + stubHierarchy + ")");
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                package.TraceLeave("OnBeforeUnloadProject");
+                MyPackage.TraceLeave(this, "OnBeforeUnloadProject(" + realHierarchy + ", " + stubHierarchy + ")");
             }
         }
 
-        public override int OnQueryUnloadProject(IVsHierarchy pRealHierarchy, ref int cancel)
+        public override int OnQueryUnloadProject(IVsHierarchy realHierarchy, ref int cancel)
         {
             try
             {
-                package.TraceEnter("OnQueryUnloadProject");
+                MyPackage.TraceEnter(this, "OnQueryUnloadProject(" + realHierarchy + ", " + cancel + ")");
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                package.TraceLeave("OnQueryUnloadProject");
+                MyPackage.TraceLeave(this, "OnQueryUnloadProject(" + realHierarchy + ", " + cancel + ")");
             }
         }
 
@@ -560,12 +563,12 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                package.TraceEnter("OnAfterAsynchOpenProject");
+                MyPackage.TraceEnter(this, "OnAfterAsynchOpenProject(" + hierarchy + ", " + added + ")");
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                package.TraceLeave("OnAfterAsynchOpenProject");
+                MyPackage.TraceLeave(this, "OnAfterAsynchOpenProject(" + hierarchy + ", " + added + ")");
             }
         }
 
@@ -573,13 +576,13 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                package.TraceEnter("OnAfterChangeProjectParent");
+                MyPackage.TraceEnter(this, "OnAfterChangeProjectParent(" + hierarchy + ")");
                 // log this to see if needed
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                package.TraceLeave("OnAfterChangeProjectParent");
+                MyPackage.TraceLeave(this, "OnAfterChangeProjectParent(" + hierarchy + ")");
             }
         }
 
@@ -587,13 +590,13 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                package.TraceEnter("OnQueryChangeProjectParent");
+                MyPackage.TraceEnter(this, "OnQueryChangeProjectParent(" + hierarchy + ", " + newParentHier + ", " + cancel + ")");
                 // log this to see if needed
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                package.TraceLeave("OnQueryChangeProjectParent");
+                MyPackage.TraceLeave(this, "OnQueryChangeProjectParent(" + hierarchy + ", " + newParentHier + ", " + cancel + ")");
             }
         }
     }
