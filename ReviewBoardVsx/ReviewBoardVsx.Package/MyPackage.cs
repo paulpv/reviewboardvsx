@@ -13,7 +13,7 @@ namespace ReviewBoardVsx.Package
     //[ComVisible(true)]
     public class MyPackage : Microsoft.VisualStudio.Shell.Package
     {
-        private String NormalizeMethodName(String methodName)
+        private static String NormalizeMethodName(String methodName)
         {
             if (!methodName.EndsWith(")"))
             {
@@ -26,14 +26,14 @@ namespace ReviewBoardVsx.Package
             return methodName;
         }
 
-        public void TraceEnter(String methodName)
+        public static void TraceEnter(Object o, String methodName)
         {
-            Trace.WriteLine(string.Format("+{0}{1}", this.ToString(), NormalizeMethodName(methodName)));
+            Trace.WriteLine(string.Format("+{0}{1}", o.ToString(), NormalizeMethodName(methodName)));
         }
 
-        public void TraceLeave(String methodName)
+        public static void TraceLeave(Object o, String methodName)
         {
-            Trace.WriteLine(string.Format("-{0}{1}", this.ToString(), NormalizeMethodName(methodName)));
+            Trace.WriteLine(string.Format("-{0}{1}", o.ToString(), NormalizeMethodName(methodName)));
         }
 
         /// <summary>

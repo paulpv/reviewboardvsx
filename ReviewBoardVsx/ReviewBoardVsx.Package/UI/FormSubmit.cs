@@ -19,22 +19,6 @@ namespace ReviewBoardVsx.UI
 {
     public partial class FormSubmit : Form
     {
-        public class SubmitItem
-        {
-            public string FullPath { get; protected set; }
-            public string Project { get; protected set; }
-            public PostReview.DiffType DiffType { get; protected set; }
-            public string Diff { get; protected set; }
-
-            public SubmitItem(string fullPath, string project, PostReview.DiffType diffType, string diff)
-            {
-                FullPath = fullPath;
-                Project = project;
-                DiffType = diffType;
-                Diff = diff;
-            }
-        }
-
         public PostReview.ReviewInfo Review { get; protected set; }
 
         MyPackage package;
@@ -322,7 +306,7 @@ namespace ReviewBoardVsx.UI
                     ErrorHandler.ThrowOnFailure(VSConstants.E_UNEXPECTED);
                 }
 
-                List<SubmitItem> changes = new List<SubmitItem>();
+                PostReview.SubmitItemCollection changes = new PostReview.SubmitItemCollection();
 
                 EnumHierarchyItems(bw, (IVsHierarchy)solution, VSConstants.VSITEMID_ROOT, 0, true, true, changes);
 
@@ -366,7 +350,7 @@ namespace ReviewBoardVsx.UI
                 }
                 else
                 {
-                    List<SubmitItem> solutionChanges = (List<SubmitItem>)progress.Result;
+                    PostReview.SubmitItemCollection solutionChanges = (PostReview.SubmitItemCollection)progress.Result;
                     if (solutionChanges == null)
                     {
                         cancel = true;
@@ -387,11 +371,11 @@ namespace ReviewBoardVsx.UI
             progress.ShowDialog(form);
         }
 
-        private void OnFindSolutionChangesDone(List<SubmitItem> solutionChanges)
+        private void OnFindSolutionChangesDone(PostReview.SubmitItemCollection solutionChanges)
         {
             if (solutionChanges == null)
             {
-                solutionChanges = new List<SubmitItem>();
+                solutionChanges = new PostReview.SubmitItemCollection();
             }
 
             string commonRoot = MyUtils.GetCommonRoot(new List<string>(solutionChanges.Select(p => p.FullPath))) + '\\';
@@ -403,7 +387,7 @@ namespace ReviewBoardVsx.UI
 
             listPaths.BeginUpdate();
             listPaths.Items.Clear();
-            foreach (SubmitItem solutionChange in solutionChanges)
+            foreach (PostReview.SubmitItem solutionChange in solutionChanges)
             {
                 pathFull = solutionChange.FullPath;
                 pathShort = Regex.Replace(pathFull, commonRoot, "", RegexOptions.IgnoreCase);
@@ -433,7 +417,7 @@ namespace ReviewBoardVsx.UI
         /// <param name="visibleNodesOnly"></param>
         /// <param name="changes"></param>
         /// <returns>true if the caller should continue, false if the caller should stop</returns>
-        private bool EnumHierarchyItems(BackgroundWorker worker, IVsHierarchy hierarchy, uint itemid, int recursionLevel, bool hierIsSolution, bool visibleNodesOnly, List<SubmitItem> changes)
+        private bool EnumHierarchyItems(BackgroundWorker worker, IVsHierarchy hierarchy, uint itemid, int recursionLevel, bool hierIsSolution, bool visibleNodesOnly, PostReview.SubmitItemCollection changes)
         {
             if (worker != null && worker.CancellationPending)
             {
@@ -523,7 +507,38 @@ namespace ReviewBoardVsx.UI
             return (worker == null || !worker.CancellationPending);
         }
 
-        private void ProcessNode(BackgroundWorker worker, IVsHierarchy hierarchy, uint itemId, int recursionLevel, List<SubmitItem> changes)
+        /// <summary>
+        /// PRELIMINARY COMMENT...
+        /// This gets complicated for a few reasons:
+        /// 1) The most important thing to remember is that VS Solutions can contain items that
+        /// exist *OUTSIDE* of a Solution's root folder. You can add a Solution Item to any file
+        /// on your system, even one that is on another drive!
+        /// 2) The second most important thing to remember is that this is a "post-review" tool,
+        /// not a "svn" or "git" or "cvs" tool; we must support
+        /// 
+        /// 
+        /// Each item [*folder*?] can be potentially using a difference source control.
+        /// 3) Each item [*folder*?] can be potentially *not* under source control.
+        /// 4) Different solution project types may be more limited; this can be a good thing.
+        ///     Example: In a C# Project, if you try to add a file above the Project root, VS
+        ///              will copy the file to the Project.
+        ///              This means that for some project types we can fairly safely assume that
+        ///              the files all existing inside the Project root. Ergo, we can safely
+        ///              "svn stat" C# Project folders and get 
+        /// 5) Finally, 
+        /// 
+        /// The below code 
+        /// 
+        /// Spanning SVN
+        /// This ability fundamentally mutates the concept of "post-review.exe solution.sln".
+        /// You are no longer post-reviewing 
+        /// </summary>
+        /// <param name="worker"></param>
+        /// <param name="hierarchy"></param>
+        /// <param name="itemId"></param>
+        /// <param name="recursionLevel"></param>
+        /// <param name="changes"></param>
+        private void ProcessNode(BackgroundWorker worker, IVsHierarchy hierarchy, uint itemId, int recursionLevel, PostReview.SubmitItemCollection changes)
         {
             try
             {
@@ -662,7 +677,7 @@ namespace ReviewBoardVsx.UI
             }
         }
 
-        public void AddFilePathIfChanged(BackgroundWorker worker, string filePath, string project, List<SubmitItem> changes)
+        public void AddFilePathIfChanged(BackgroundWorker worker, string filePath, string project, PostReview.SubmitItemCollection changes)
         {
             try
             {
@@ -690,7 +705,7 @@ namespace ReviewBoardVsx.UI
                     case PostReview.DiffType.Added:
                     case PostReview.DiffType.Changed:
                     case PostReview.DiffType.Modified:
-                        SubmitItem change = new SubmitItem(filePath, project, diffType, diff);
+                        PostReview.SubmitItem change = new PostReview.SubmitItem(filePath, project, diffType, diff);
                         changes.Add(change);
                         break;
                     case PostReview.DiffType.External:

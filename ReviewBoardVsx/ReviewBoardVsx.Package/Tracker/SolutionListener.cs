@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Diagnostics;
+using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell.Interop;
 using ShellConstants = Microsoft.VisualStudio.Shell.Interop.Constants;
 
-namespace Microsoft.VisualStudio.Package
+namespace ReviewBoardVsx.Package.Tracker
 {
     /// <summary>
     /// Most of this class was shamelessly copied from:
@@ -12,26 +13,16 @@ namespace Microsoft.VisualStudio.Package
     [CLSCompliant(false)]
     public abstract class SolutionListener : IVsSolutionEvents, IVsSolutionEvents2, IVsSolutionEvents3, IVsSolutionEvents4, IDisposable
     {
-        #region fields
-
         protected IVsSolution Solution { get; private set; }
-        protected IServiceProvider ServiceProvider { get; private set; }
-
         private uint eventsCookie = (uint)ShellConstants.VSCOOKIE_NIL;
-        protected uint EventsCookie { get { return eventsCookie; } }
 
         private bool isDisposed;
         private static volatile object Mutex = new object();
 
-        #endregion
-
         protected SolutionListener(IServiceProvider serviceProvider)
         {
-            ServiceProvider = serviceProvider;
             Solution = serviceProvider.GetService(typeof(SVsSolution)) as IVsSolution;
-
             Debug.Assert(Solution != null, "Could not get the IVsSolution object from the services exposed by this project");
-
             if (Solution == null)
             {
                 throw new InvalidOperationException();
@@ -68,27 +59,27 @@ namespace Microsoft.VisualStudio.Package
             GC.SuppressFinalize(this);
         }
 
-        public virtual void Initialize()
-        {
-            if (Solution != null)
-            {
-                ErrorHandler.ThrowOnFailure(Solution.AdviseSolutionEvents(this, out eventsCookie));
-            }
-        }
-
         protected virtual void Dispose(bool disposing)
         {
             if (!isDisposed)
             {
                 lock (Mutex)
                 {
-                    if (disposing && eventsCookie != (uint)ShellConstants.VSCOOKIE_NIL && Solution != null)
+                    if (disposing && Solution != null && eventsCookie != (uint)ShellConstants.VSCOOKIE_NIL)
                     {
                         ErrorHandler.ThrowOnFailure(Solution.UnadviseSolutionEvents((uint)eventsCookie));
                         eventsCookie = (uint)ShellConstants.VSCOOKIE_NIL;
                     }
                     isDisposed = true;
                 }
+            }
+        }
+
+        public virtual void Initialize()
+        {
+            if (Solution != null && eventsCookie == (uint)ShellConstants.VSCOOKIE_NIL)
+            {
+                ErrorHandler.ThrowOnFailure(Solution.AdviseSolutionEvents(this, out eventsCookie));
             }
         }
     }

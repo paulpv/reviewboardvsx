@@ -48,8 +48,8 @@ namespace ReviewBoardVsx.Package
         /// </summary>
         public ReviewBoardVsPackage()
         {
-            TraceEnter("()");
-            TraceLeave("()");
+            TraceEnter(this, "()");
+            TraceLeave(this, "()");
         }
 
         /// <summary>
@@ -58,7 +58,7 @@ namespace ReviewBoardVsx.Package
         /// </summary>
         protected override void Initialize()
         {
-            TraceEnter("Initialize()");
+            TraceEnter(this, "Initialize()");
 
             base.Initialize();
 
@@ -81,13 +81,13 @@ namespace ReviewBoardVsx.Package
                 mcs.AddCommand(commandReviewBoard);
             }
 
-            TraceLeave("Initialize()");
+            TraceLeave(this, "Initialize()");
         }
 
         void commandReviewBoard_BeforeQueryStatus(object sender, EventArgs e)
         {
-            TraceEnter("commandReviewBoard_BeforeQueryStatus(...)");
-            TraceLeave("commandReviewBoard_BeforeQueryStatus(...)");
+            TraceEnter(this, "commandReviewBoard_BeforeQueryStatus(...)");
+            TraceLeave(this, "commandReviewBoard_BeforeQueryStatus(...)");
         }
 
         private void ReviewBoardCommand(object caller, EventArgs args)
