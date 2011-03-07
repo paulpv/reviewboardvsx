@@ -14,14 +14,18 @@ namespace ReviewBoardVsx.Package.Tracker
     [CLSCompliant(false)]
     public abstract class ProjectDocumentsListener : IVsTrackProjectDocumentsEvents2, IDisposable
     {
-        private IVsTrackProjectDocuments2 projectDocumentTracker2;
-        private uint eventsCookie = (uint)ShellConstants.VSCOOKIE_NIL;
+        public IServiceProvider ServiceProvider { get; private set; }
 
+        private IVsTrackProjectDocuments2 projectDocumentTracker2;
+
+        private uint eventsCookie = (uint)ShellConstants.VSCOOKIE_NIL;
         private bool isDisposed;
         private static volatile object Mutex = new object();
 
         protected ProjectDocumentsListener(IServiceProvider serviceProvider)
         {
+            ServiceProvider = serviceProvider;
+
             projectDocumentTracker2 = serviceProvider.GetService(typeof(SVsTrackProjectDocuments)) as IVsTrackProjectDocuments2;
             Debug.Assert(projectDocumentTracker2 != null, "Could not get the IVsTrackProjectDocuments2 object from the services exposed by this project");
             if (projectDocumentTracker2 == null)

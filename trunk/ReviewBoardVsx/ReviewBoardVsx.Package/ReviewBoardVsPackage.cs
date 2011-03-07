@@ -106,7 +106,7 @@ namespace ReviewBoardVsx.Package
                 owp.Activate();
             }
 
-            FormSubmit form = new FormSubmit(this);
+            FormSubmit form = new FormSubmit(solutionTracker);
             if (form.ShowDialog() == DialogResult.OK)
             {
                 PostReview.ReviewInfo reviewInfo = form.Review;

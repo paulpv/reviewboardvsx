@@ -14,6 +14,7 @@ using System.Runtime.InteropServices;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell.Interop;
 using ReviewBoardVsx.Package;
+using ReviewBoardVsx.Package.Tracker;
 
 namespace ReviewBoardVsx.UI
 {
@@ -21,13 +22,13 @@ namespace ReviewBoardVsx.UI
     {
         public PostReview.ReviewInfo Review { get; protected set; }
 
-        MyPackage package;
+        MySolutionTracker solutionTracker;
 
-        public FormSubmit(MyPackage package)
+        public FormSubmit(MySolutionTracker solutionTracker)
         {
             InitializeComponent();
 
-            this.package = package;
+            this.solutionTracker = solutionTracker;
         }
 
         private void FormSubmit_Load(object sender, EventArgs e)
@@ -52,8 +53,15 @@ namespace ReviewBoardVsx.UI
 
         private void FormSubmit_Shown(object sender, EventArgs e)
         {
-            // DoFindSolutionChanges will finish initializing remaining controls as and after it finishes crawling the solution
-            DoFindSolutionChanges(this);
+            if (!solutionTracker.IsInitialChangeFindFinished)
+            {
+                // DoFindSolutionChanges will finish initializing remaining controls as and after it finishes crawling the solution
+                DoFindSolutionChanges(this);
+            }
+            else
+            {
+                OnFindSolutionChangesDone();
+            }
         }
 
         private void buttonClearReviewIds_Click(object sender, EventArgs e)
@@ -299,18 +307,17 @@ namespace ReviewBoardVsx.UI
             {
                 BackgroundWorker bw = s as BackgroundWorker;
 
-                IVsSolution solution = package.GetSolution();
-                if (solution == null)
-                {
-                    package.OutputGeneral("ERROR: Cannot get solution object");
-                    ErrorHandler.ThrowOnFailure(VSConstants.E_UNEXPECTED);
-                }
+                //IVsSolution solution = package.GetSolution();
+                //if (solution == null)
+                //{
+                //    MyPackage.OutputGeneral("ERROR: Cannot get solution object");
+                //    ErrorHandler.ThrowOnFailure(VSConstants.E_UNEXPECTED);
+                //}
 
+                // TODO:(pv) Get changes from MySolutionTracker.Changes
                 PostReview.SubmitItemCollection changes = new PostReview.SubmitItemCollection();
 
-                EnumHierarchyItems(bw, (IVsHierarchy)solution, VSConstants.VSITEMID_ROOT, 0, true, true, changes);
-
-                e.Result = changes;
+                e.Result = changes.AsReadOnly();
 
                 if (bw.CancellationPending)
                 {
@@ -350,14 +357,14 @@ namespace ReviewBoardVsx.UI
                 }
                 else
                 {
-                    PostReview.SubmitItemCollection solutionChanges = (PostReview.SubmitItemCollection)progress.Result;
+                    PostReview.SubmitItemReadOnlyCollection solutionChanges = (PostReview.SubmitItemReadOnlyCollection)progress.Result;
                     if (solutionChanges == null)
                     {
                         cancel = true;
                     }
                     else
                     {
-                        OnFindSolutionChangesDone(solutionChanges);
+                        OnFindSolutionChangesDone();
                     }
                 }
 
@@ -371,12 +378,9 @@ namespace ReviewBoardVsx.UI
             progress.ShowDialog(form);
         }
 
-        private void OnFindSolutionChangesDone(PostReview.SubmitItemCollection solutionChanges)
+        private void OnFindSolutionChangesDone()
         {
-            if (solutionChanges == null)
-            {
-                solutionChanges = new PostReview.SubmitItemCollection();
-            }
+            PostReview.SubmitItemReadOnlyCollection solutionChanges = solutionTracker.Changes;
 
             string commonRoot = MyUtils.GetCommonRoot(new List<string>(solutionChanges.Select(p => p.FullPath))) + '\\';
             commonRoot = Regex.Escape(commonRoot);
@@ -406,329 +410,6 @@ namespace ReviewBoardVsx.UI
             listPaths.EndUpdate();
         }
 
-        /// <summary>
-        /// Code almost 100% taken from VS SDK Example: SolutionHierarchyTraversal
-        /// </summary>
-        /// <param name="worker"></param>
-        /// <param name="hierarchy"></param>
-        /// <param name="itemid"></param>
-        /// <param name="recursionLevel"></param>
-        /// <param name="hierIsSolution"></param>
-        /// <param name="visibleNodesOnly"></param>
-        /// <param name="changes"></param>
-        /// <returns>true if the caller should continue, false if the caller should stop</returns>
-        private bool EnumHierarchyItems(BackgroundWorker worker, IVsHierarchy hierarchy, uint itemid, int recursionLevel, bool hierIsSolution, bool visibleNodesOnly, PostReview.SubmitItemCollection changes)
-        {
-            if (worker != null && worker.CancellationPending)
-            {
-                return false;
-            }
-
-            int hr;
-            IntPtr nestedHierarchyObj;
-            uint nestedItemId;
-            Guid hierGuid = typeof(IVsHierarchy).GUID;
-
-            // Check first if this node has a nested hierarchy. If so, then there really are two 
-            // identities for this node: 1. hierarchy/itemid 2. nestedHierarchy/nestedItemId.
-            // We will recurse and call EnumHierarchyItems which will display this node using
-            // the inner nestedHierarchy/nestedItemId identity.
-            hr = hierarchy.GetNestedHierarchy(itemid, ref hierGuid, out nestedHierarchyObj, out nestedItemId);
-            if (VSConstants.S_OK == hr && IntPtr.Zero != nestedHierarchyObj)
-            {
-                IVsHierarchy nestedHierarchy = Marshal.GetObjectForIUnknown(nestedHierarchyObj) as IVsHierarchy;
-                Marshal.Release(nestedHierarchyObj);    // we are responsible to release the refcount on the out IntPtr parameter
-                if (nestedHierarchy != null)
-                {
-                    // Display name and type of the node in the Output Window
-                    EnumHierarchyItems(worker, nestedHierarchy, nestedItemId, recursionLevel, false, visibleNodesOnly, changes);
-                }
-            }
-            else
-            {
-                object pVar;
-
-                // Display name and type of the node in the Output Window
-                ProcessNode(worker, hierarchy, itemid, recursionLevel, changes);
-
-                recursionLevel++;
-
-                // Get the first child node of the current hierarchy being walked
-                // NOTE: to work around a bug with the Solution implementation of VSHPROPID_FirstChild,
-                // we keep track of the recursion level. If we are asking for the first child under
-                // the Solution, we use VSHPROPID_FirstVisibleChild instead of _FirstChild. 
-                // In VS 2005 and earlier, the Solution improperly enumerates all nested projects
-                // in the Solution (at any depth) as if they are immediate children of the Solution.
-                // Its implementation _FirstVisibleChild is correct however, and given that there is
-                // not a feature to hide a SolutionFolder or a Project, thus _FirstVisibleChild is 
-                // expected to return the identical results as _FirstChild.
-                hr = hierarchy.GetProperty(itemid,
-                    ((visibleNodesOnly || (hierIsSolution && recursionLevel == 1) ?
-                        (int)__VSHPROPID.VSHPROPID_FirstVisibleChild : (int)__VSHPROPID.VSHPROPID_FirstChild)),
-                    out pVar);
-                Microsoft.VisualStudio.ErrorHandler.ThrowOnFailure(hr);
-                if (VSConstants.S_OK == hr)
-                {
-                    // We are using Depth first search so at each level we recurse to check if the node has any children
-                    // and then look for siblings.
-                    uint childId = package.GetItemId(pVar);
-                    while (childId != VSConstants.VSITEMID_NIL)
-                    {
-                        if (!EnumHierarchyItems(worker, hierarchy, childId, recursionLevel, false, visibleNodesOnly, changes))
-                        {
-                            break;
-                        }
-
-                        // NOTE: to work around a bug with the Solution implementation of VSHPROPID_NextSibling,
-                        // we keep track of the recursion level. If we are asking for the next sibling under
-                        // the Solution, we use VSHPROPID_NextVisibleSibling instead of _NextSibling. 
-                        // In VS 2005 and earlier, the Solution improperly enumerates all nested projects
-                        // in the Solution (at any depth) as if they are immediate children of the Solution.
-                        // Its implementation   _NextVisibleSibling is correct however, and given that there is
-                        // not a feature to hide a SolutionFolder or a Project, thus _NextVisibleSibling is 
-                        // expected to return the identical results as _NextSibling.
-                        hr = hierarchy.GetProperty(childId,
-                            ((visibleNodesOnly || (hierIsSolution && recursionLevel == 1)) ?
-                                (int)__VSHPROPID.VSHPROPID_NextVisibleSibling : (int)__VSHPROPID.VSHPROPID_NextSibling),
-                            out pVar);
-                        if (VSConstants.S_OK == hr)
-                        {
-                            childId = package.GetItemId(pVar);
-                        }
-                        else
-                        {
-                            Microsoft.VisualStudio.ErrorHandler.ThrowOnFailure(hr);
-                            break;
-                        }
-                    }
-                }
-            }
-
-            return (worker == null || !worker.CancellationPending);
-        }
-
-        /// <summary>
-        /// PRELIMINARY COMMENT...
-        /// This gets complicated for a few reasons:
-        /// 1) The most important thing to remember is that VS Solutions can contain items that
-        /// exist *OUTSIDE* of a Solution's root folder. You can add a Solution Item to any file
-        /// on your system, even one that is on another drive!
-        /// 2) The second most important thing to remember is that this is a "post-review" tool,
-        /// not a "svn" or "git" or "cvs" tool; we must support
-        /// 
-        /// 
-        /// Each item [*folder*?] can be potentially using a difference source control.
-        /// 3) Each item [*folder*?] can be potentially *not* under source control.
-        /// 4) Different solution project types may be more limited; this can be a good thing.
-        ///     Example: In a C# Project, if you try to add a file above the Project root, VS
-        ///              will copy the file to the Project.
-        ///              This means that for some project types we can fairly safely assume that
-        ///              the files all existing inside the Project root. Ergo, we can safely
-        ///              "svn stat" C# Project folders and get 
-        /// 5) Finally, 
-        /// 
-        /// The below code 
-        /// 
-        /// Spanning SVN
-        /// This ability fundamentally mutates the concept of "post-review.exe solution.sln".
-        /// You are no longer post-reviewing 
-        /// </summary>
-        /// <param name="worker"></param>
-        /// <param name="hierarchy"></param>
-        /// <param name="itemId"></param>
-        /// <param name="recursionLevel"></param>
-        /// <param name="changes"></param>
-        private void ProcessNode(BackgroundWorker worker, IVsHierarchy hierarchy, uint itemId, int recursionLevel, PostReview.SubmitItemCollection changes)
-        {
-            try
-            {
-                Debug.WriteLine("+ProcessNode(...): itemId=" + itemId);
-
-                int hr;
-
-                Object oRootName;
-                hr = hierarchy.GetProperty(VSConstants.VSITEMID_ROOT, (int)__VSHPROPID.VSHPROPID_Name, out oRootName);
-                if (ErrorHandler.Failed(hr))
-                {
-                    package.OutputGeneral("ERROR: Could not get root name of item #" + itemId);
-                    ErrorHandler.ThrowOnFailure(hr);
-                }
-                string rootName = oRootName as string;
-                if (String.IsNullOrEmpty(rootName))
-                {
-                    rootName = Resources.RootUnknown;
-                }
-                Debug.WriteLine("rootName=" + rootName);
-
-                string itemName;
-                hr = hierarchy.GetCanonicalName(itemId, out itemName);
-                if (ErrorHandler.Failed(hr))
-                {
-                    switch(hr)
-                    {
-                        case VSConstants.E_NOTIMPL:
-                            // ignore; Nothing to do if we cannot get the file name, but below logic can handle null/empty name...
-                            itemName = null;
-                            break;
-                        default:
-                            package.OutputGeneral("ERROR: Could not get canonical name of item #" + itemId);
-                            ErrorHandler.ThrowOnFailure(hr);
-                            break;
-                    }
-                }
-                Debug.WriteLine("itemName=\"" + itemName + "\"");
-
-#if DEBUG && false
-                if (!String.IsNullOrEmpty(itemName))
-                {
-                    // Temporary until we call AddFilePathIfChanged after we find out what the item type is
-                    worker.ReportProgress(0, itemName);
-                }
-#endif
-
-                Guid guidTypeNode;
-                hr = hierarchy.GetGuidProperty(itemId, (int)__VSHPROPID.VSHPROPID_TypeGuid, out guidTypeNode);
-                if (ErrorHandler.Failed(hr))
-                {
-                    switch(hr)
-                    {
-                        case VSConstants.E_NOTIMPL:
-                            Debug.WriteLine("Guid property E_NOTIMPL for item #" + itemId + " \"" + itemName + "\"; assuming virtual/reference item and ignoring");
-                            // ignore; Below logic can handle Guid.Empty
-                            guidTypeNode = Guid.Empty;
-                            break;
-                        case VSConstants.DISP_E_MEMBERNOTFOUND:
-                            Debug.WriteLine("Guid property DISP_E_MEMBERNOTFOUND for item #" + itemId + " \"" + itemName + "\"; assuming reference item and ignoring");
-                            guidTypeNode = Guid.Empty;
-                            break;
-                        default:
-                            package.OutputGeneral("ERROR: Could not get type guid of item #" + itemId + " \"" + itemName + "\"");
-                            ErrorHandler.ThrowOnFailure(hr);
-                            break;
-                    }
-                }
-                Debug.WriteLine("guidTypeNode=" + guidTypeNode);
-
-                //
-                // Intentionally ordered from most commonly expected to least commonly expected...
-                //
-                if (Guid.Equals(guidTypeNode, VSConstants.GUID_ItemType_PhysicalFile))
-                {
-                    AddFilePathIfChanged(worker, itemName, rootName, changes);
-                }
-                else if (itemId == VSConstants.VSITEMID_ROOT)
-                {
-                    IVsProject project = hierarchy as IVsProject;
-                    if (project != null)
-                    {
-                        string projectFile;
-                        project.GetMkDocument(VSConstants.VSITEMID_ROOT, out projectFile);
-                        AddFilePathIfChanged(worker, projectFile, rootName, changes);
-                    }
-                    else
-                    {
-                        IVsSolution solution = hierarchy as IVsSolution;
-                        if (solution != null)
-                        {
-                            rootName = Resources.RootSolution;
-
-                            string solutionDirectory, solutionFile, solutionUserOptions;
-                            ErrorHandler.ThrowOnFailure(solution.GetSolutionInfo(out solutionDirectory, out solutionFile, out solutionUserOptions));
-                            AddFilePathIfChanged(worker, solutionFile, rootName, changes);
-                        }
-                        else
-                        {
-                            package.OutputGeneral("ERROR: itemid==VSITEMID_ROOT, but hierarchy is neither Solution or Project");
-                            ErrorHandler.ThrowOnFailure(VSConstants.E_UNEXPECTED);
-                        }
-                    }
-                }
-#if DEBUG
-                else if (Guid.Equals(guidTypeNode, VSConstants.GUID_ItemType_PhysicalFolder))
-                {
-                    Debug.WriteLine("ignoring GUID_ItemType_PhysicalFolder");
-                    // future enumeration will handle any individual subitems in this folder...
-                }
-                else if (Guid.Equals(guidTypeNode, VSConstants.GUID_ItemType_VirtualFolder))
-                {
-                    Debug.WriteLine("ignoring GUID_ItemType_VirtualFolder");
-                    // future enumeration will handle any individual subitems in this virtual folder...
-                }
-                else if (Guid.Equals(guidTypeNode, VSConstants.GUID_ItemType_SubProject))
-                {
-                    Debug.WriteLine("ignoring GUID_ItemType_SubProject");
-                    // future enumeration will handle any individual subitems in this sub project...
-                }
-                else if (Guid.Equals(guidTypeNode, Guid.Empty))
-                {
-                    Debug.WriteLine("ignoring itemName=" + itemName + "; guidTypeNode == Guid.Empty");
-                    // future enumeration will handle any individual subitems in this item...
-                }
-                else
-                {
-                    package.OutputGeneral("ERROR: Unhandled node item/type itemName=" + itemName + ", guidTypeNode=" + guidTypeNode);
-                    ErrorHandler.ThrowOnFailure(VSConstants.E_UNEXPECTED);
-                }
-#endif
-            }
-            finally
-            {
-                Debug.WriteLine("-ProcessNode(...): itemId=" + itemId);
-            }
-        }
-
-        public void AddFilePathIfChanged(BackgroundWorker worker, string filePath, string project, PostReview.SubmitItemCollection changes)
-        {
-            try
-            {
-                Debug.WriteLine("+AddFilePathIfChanged(\"" + filePath + "\", \"" + project + "\", changes(" + changes.Count + "))");
-
-                filePath = MyUtils.GetCasedFilePath(filePath);
-                if (String.IsNullOrEmpty(filePath))
-                {
-                    // If we got this far then the *Solution* says there is a file.
-                    // However, the file can be an external/symbolic link/reference, not an actual file.
-                    // Ignore this situation and just continue the enumeration.
-                    return;
-                }
-
-                // Percent is currently always 0, since our progress is indeterminate
-                // TODO:(pv) Find some way to determine # of nodes in tree *before* processing
-                // NOTE:(pv) I did have the debugger halt here complaining invalid state that the form is not active
-                worker.ReportProgress(0, filePath);
-
-                string diff;
-                PostReview.DiffType diffType = PostReview.DiffFile(filePath, out diff);
-
-                switch(diffType)
-                {
-                    case PostReview.DiffType.Added:
-                    case PostReview.DiffType.Changed:
-                    case PostReview.DiffType.Modified:
-                        PostReview.SubmitItem change = new PostReview.SubmitItem(filePath, project, diffType, diff);
-                        changes.Add(change);
-                        break;
-                    case PostReview.DiffType.External:
-                        // TODO:(pv) Even add External items?
-                        // Doesn't make much sense, since they won't diff during post-review.exe submit.
-                        // Maybe could add them and group them at bottom as disabled.
-                        break;
-                    case PostReview.DiffType.Normal:
-                        // TODO:(pv) Even add normal items?
-                        // Doesn't make much sense, since they won't diff during post-review.exe submit.
-                        // Maybe could add them and group them at bottom as disabled.
-                        break;
-                    default:
-                        string message = String.Format("Unhandled DiffType={0}", diffType);
-                        throw new ArgumentOutOfRangeException("diffType", message);
-                }
-            }
-            finally
-            {
-                Debug.WriteLine("-AddFilePathIfChanged(\"" + filePath + "\", \"" + project + "\", changes(" + changes.Count + "))");
-            }
-        }
-
         #endregion FindSolutionChanges
 
         #region DoPostReview
@@ -742,8 +423,6 @@ namespace ReviewBoardVsx.UI
             {
                 BackgroundWorker bw = s as BackgroundWorker;
 
-                MyPackage package = form.package;
-
                 string server = form.textBoxServer.Text;
                 string username = form.textBoxUsername.Text;
                 string password = form.textBoxPassword.Text;
@@ -753,7 +432,7 @@ namespace ReviewBoardVsx.UI
                 PostReview.PostReviewOpen open = PostReview.PostReviewOpen.Internal;
                 bool debug = false;
 
-                e.Result = PostReview.Submit(bw, package, server, username, password, submitAs, reviewId, changes, publish, open, debug);
+                e.Result = PostReview.Submit(bw, server, username, password, submitAs, reviewId, changes, publish, open, debug);
 
                 if (bw.CancellationPending)
                 {
