@@ -13,14 +13,18 @@ namespace ReviewBoardVsx.Package.Tracker
     [CLSCompliant(false)]
     public abstract class SolutionListener : IVsSolutionEvents, IVsSolutionEvents2, IVsSolutionEvents3, IVsSolutionEvents4, IDisposable
     {
-        protected IVsSolution Solution { get; private set; }
-        private uint eventsCookie = (uint)ShellConstants.VSCOOKIE_NIL;
+        public IServiceProvider ServiceProvider { get; private set; }
 
+        public IVsSolution Solution { get; private set; }
+
+        private uint eventsCookie = (uint)ShellConstants.VSCOOKIE_NIL;
         private bool isDisposed;
         private static volatile object Mutex = new object();
 
         protected SolutionListener(IServiceProvider serviceProvider)
         {
+            ServiceProvider = serviceProvider;
+
             Solution = serviceProvider.GetService(typeof(SVsSolution)) as IVsSolution;
             Debug.Assert(Solution != null, "Could not get the IVsSolution object from the services exposed by this project");
             if (Solution == null)

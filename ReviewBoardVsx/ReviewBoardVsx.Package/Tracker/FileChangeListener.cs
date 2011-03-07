@@ -36,9 +36,14 @@ namespace ReviewBoardVsx.Package.Tracker
 
         public abstract int FilesChanged(uint cChanges, string[] rgpszFile, uint[] rggrfChange);
 
+        /// <summary>
+        /// Does nothing; This *File*ChangeListener class is not interested in *Directory* changes.
+        /// </summary>
+        /// <param name="pszDirectory"></param>
+        /// <returns></returns>
         public int DirectoryChanged(string pszDirectory)
         {
-            return VSConstants.S_OK; // This *File*ChangeListener class is not interested in *Directory* changes.
+            return VSConstants.S_OK;
         }
 
         #endregion
@@ -64,44 +69,62 @@ namespace ReviewBoardVsx.Package.Tracker
             }
         }
 
-        public void Subscribe(string filepath)
+        public void Subscribe(string filepath, bool prelowered)
         {
             if (fileChangeEx != null && !String.IsNullOrEmpty(filepath))
             {
-                uint cookie;
-                lock (eventCookies)
+                if (!prelowered)
                 {
-                    ErrorHandler.ThrowOnFailure(fileChangeEx.AdviseFileChange(filepath, (uint)(_VSFILECHANGEFLAGS.VSFILECHG_Size | _VSFILECHANGEFLAGS.VSFILECHG_Time), this, out cookie));
-                    eventCookies.Add(filepath, cookie);
+                    filepath = filepath.ToLower();
                 }
-            }
-        }
-
-        public void Ignore(string filepath, bool ignore)
-        {
-            if (fileChangeEx != null && !String.IsNullOrEmpty(filepath))
-            {
-                uint cookie;
                 lock (eventCookies)
                 {
-                    if (eventCookies.TryGetValue(filepath, out cookie))
+                    if (!eventCookies.ContainsKey(filepath))
                     {
-                        ErrorHandler.ThrowOnFailure(fileChangeEx.IgnoreFile(cookie, filepath, (ignore) ? 0 : 1));
+                        uint cookie;
+                        ErrorHandler.ThrowOnFailure(fileChangeEx.AdviseFileChange(filepath, (uint)(_VSFILECHANGEFLAGS.VSFILECHG_Size | _VSFILECHANGEFLAGS.VSFILECHG_Time), this, out cookie));
+                        MyPackage.OutputGeneral("Tracking \"" + filepath + "\"");
+                        eventCookies.Add(filepath, cookie);
                     }
                 }
             }
         }
 
-        public void Unsubscribe(string filepath)
+        public void Ignore(string filepath, bool ignore, bool prelowered)
         {
             if (fileChangeEx != null && !String.IsNullOrEmpty(filepath))
             {
                 uint cookie;
+                if (!prelowered)
+                {
+                    filepath = filepath.ToLower();
+                }
+                lock (eventCookies)
+                {
+                    if (eventCookies.TryGetValue(filepath, out cookie))
+                    {
+                        ErrorHandler.ThrowOnFailure(fileChangeEx.IgnoreFile(cookie, filepath, (ignore) ? 0 : 1));
+                        MyPackage.OutputGeneral("Ignoring \"" + filepath + "\"");
+                    }
+                }
+            }
+        }
+
+        public void Unsubscribe(string filepath, bool prelowered)
+        {
+            if (fileChangeEx != null && !String.IsNullOrEmpty(filepath))
+            {
+                uint cookie;
+                if (!prelowered)
+                {
+                    filepath = filepath.ToLower();
+                }
                 lock (eventCookies)
                 {
                     if (eventCookies.TryGetValue(filepath, out cookie))
                     {
                         ErrorHandler.ThrowOnFailure(fileChangeEx.UnadviseFileChange(cookie));
+                        MyPackage.OutputGeneral("Not Tracking \"" + filepath + "\"");
                     }
                 }
             }
@@ -113,7 +136,7 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 foreach (string filepath in eventCookies.Keys)
                 {
-                    Unsubscribe(filepath);
+                    Unsubscribe(filepath, true);
                 }
                 eventCookies.Clear();
             }

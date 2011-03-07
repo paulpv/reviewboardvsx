@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -11,29 +12,14 @@ namespace ReviewBoardVsx.Package
 {
     public class PostReview
     {
+        /// <summary>
+        /// The post-review.exe executable name. (Should be in the PATH).
+        /// </summary>
         public static readonly string PostReviewExe = "post-review.exe";
         public static readonly string PostReviewRegExSubmitOk = @"Review request #(?<id>\d*?) posted\..*(?<uri>http(s?)://.*?/r/\d*)";
         public static readonly string PostReviewRegExDiffExternal = "[\"svn: '(.*?)' is not under version control\n\"]";
 
-        public class SubmitItem
-        {
-            public string FullPath { get; protected set; }
-            public string Project { get; protected set; }
-            public DiffType DiffType { get; protected set; }
-            public string Diff { get; protected set; }
-
-            public SubmitItem(string fullPath, string project, DiffType diffType, string diff)
-            {
-                FullPath = fullPath;
-                Project = project;
-                DiffType = diffType;
-                Diff = diff;
-            }
-        }
-
-        public class SubmitItemCollection : List<PostReview.SubmitItem>
-        {
-        }
+        #region PostReviewException
 
         public class PostReviewException : Exception
         {
@@ -100,6 +86,8 @@ namespace ReviewBoardVsx.Package
             }
         }
 
+        #endregion PostReviewException
+
         protected static string TrimOutput(string output)
         {
             if (output != null)
@@ -111,6 +99,37 @@ namespace ReviewBoardVsx.Package
                 }
             }
             return output;
+        }
+
+        public class SubmitItem
+        {
+            public string FullPath { get; protected set; }
+            public string Project { get; protected set; }
+            public DiffType DiffType { get; protected set; }
+            public string Diff { get; protected set; }
+
+            public SubmitItem(string fullPath, string project, DiffType diffType, string diff)
+            {
+                FullPath = fullPath;
+                Project = project;
+                DiffType = diffType;
+                Diff = diff;
+            }
+        }
+
+        public class SubmitItemCollection : List<SubmitItem>
+        {
+            public new SubmitItemReadOnlyCollection AsReadOnly()
+            {
+                return new SubmitItemReadOnlyCollection(this);
+            }
+        }
+
+        public class SubmitItemReadOnlyCollection : ReadOnlyCollection<SubmitItem>
+        {
+            public SubmitItemReadOnlyCollection(SubmitItemCollection items) : base(items)
+            {
+            }
         }
 
         #region DiffFile
@@ -243,7 +262,7 @@ namespace ReviewBoardVsx.Package
             }
         }
 
-        public static ReviewInfo Submit(BackgroundWorker worker, MyPackage package,
+        public static ReviewInfo Submit(BackgroundWorker worker,
             string server, string username, string password, string submitAs,
             int reviewId, List<string> changes, bool publish, PostReviewOpen open, bool debug)
         {
@@ -309,7 +328,7 @@ namespace ReviewBoardVsx.Package
             {
                 commandLine.Append(' ').Append(arguments);
             }
-            package.OutputGeneral("Running: " + commandLine);
+            MyPackage.OutputGeneral("Running: " + commandLine);
 
             string stdout;
             string stderr;

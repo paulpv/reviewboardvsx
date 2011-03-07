@@ -41,7 +41,7 @@ namespace ReviewBoardVsx.Package
         /// </summary>
         /// <param name="pvar">VARIANT holding an itemid.</param>
         /// <returns>Item Id of the concerned node</returns>
-        public uint GetItemId(object pvar)
+        public static uint GetItemId(object pvar)
         {
             if (pvar == null) return VSConstants.VSITEMID_NIL;
             if (pvar is int) return (uint)(int)pvar;
@@ -77,7 +77,7 @@ namespace ReviewBoardVsx.Package
             return GetService<SVsLaunchPad>() as IVsLaunchPad;
         }
 
-        public IVsMonitorSelection GetMonitorSelection()
+        public static IVsMonitorSelection GetMonitorSelection()
         {
             return Microsoft.VisualStudio.Shell.Package.GetGlobalService(typeof(SVsShellMonitorSelection)) as IVsMonitorSelection;
         }
@@ -103,7 +103,7 @@ namespace ReviewBoardVsx.Package
         /// Prints to debug ouput and on the generic pane of the VS output window.
         /// </summary>
         /// <param name="text">text to send to Output Window.</param>
-        public void OutputGeneral(string text)
+        public static void OutputGeneral(string text)
         {
             Debug.WriteLine("OutputGeneral: " + text);
 
