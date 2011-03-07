@@ -106,16 +106,103 @@ namespace ReviewBoardVsx.Package
                 owp.Activate();
             }
 
-            FormSubmit form = new FormSubmit(solutionTracker);
-            if (form.ShowDialog() == DialogResult.OK)
+            if (solutionTracker.IsInitialSolutionCrawlFinished)
             {
-                PostReview.ReviewInfo reviewInfo = form.Review;
-                if (reviewInfo != null)
+                FormSubmit form = new FormSubmit(solutionTracker.Changes);
+                if (form.ShowDialog() == DialogResult.OK)
                 {
-                    VsBrowseUrl(reviewInfo.Uri);
+                    PostReview.ReviewInfo reviewInfo = form.Review;
+                    if (reviewInfo != null)
+                    {
+                        VsBrowseUrl(reviewInfo.Uri);
+                    }
                 }
             }
+            else
+            {
+                // TODO:(pv) Show dialog/progress bar indicating still crawling solution...
+            }
         }
+
+        /*
+        // TODO:(pv) Make this static, like DoPostReview
+        void DoFindSolutionChanges(FormSubmit form)
+        {
+            DoWorkEventHandler handlerFindSolutionChanges = (s, e) =>
+            {
+                BackgroundWorker bw = s as BackgroundWorker;
+
+                //IVsSolution solution = package.GetSolution();
+                //if (solution == null)
+                //{
+                //    MyPackage.OutputGeneral("ERROR: Cannot get solution object");
+                //    ErrorHandler.ThrowOnFailure(VSConstants.E_UNEXPECTED);
+                //}
+
+                // TODO:(pv) Get changes from MySolutionTracker.Changes
+                PostReview.SubmitItemCollection changes = new PostReview.SubmitItemCollection();
+
+                e.Result = changes.AsReadOnly();
+
+                if (bw.CancellationPending)
+                {
+                    e.Cancel = true;
+                }
+            };
+
+            FormProgress progress = new FormProgress("Finding solution changes...", "Finding solution changes...", handlerFindSolutionChanges);
+
+            progress.FormClosed += (s, e) =>
+            {
+                bool cancel = false;
+
+                Exception error = progress.Error;
+                if (error != null)
+                {
+                    StringBuilder message = new StringBuilder();
+
+                    message.AppendLine("Error finding solution changes:");
+                    message.AppendLine();
+                    if (error is PostReview.PostReviewException)
+                    {
+                        message.Append(error.ToString());
+                        message.AppendLine();
+                        message.Append("Make sure ").Append(PostReview.PostReviewExe).AppendLine(" is in your PATH!");
+                    }
+                    else
+                    {
+                        message.Append(error.Message);
+                    }
+                    message.AppendLine();
+                    message.Append("Click \"OK\" to return to Visual Studio.");
+
+                    MessageBox.Show(form, message.ToString(), "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+                    cancel = true;
+                }
+                else
+                {
+                    PostReview.SubmitItemReadOnlyCollection solutionChanges = (PostReview.SubmitItemReadOnlyCollection)progress.Result;
+                    if (solutionChanges == null)
+                    {
+                        cancel = true;
+                    }
+                    else
+                    {
+                        OnFindSolutionChangesDone();
+                    }
+                }
+
+                if (cancel)
+                {
+                    form.DialogResult = DialogResult.Cancel;
+                    form.Close();
+                }
+            };
+
+            progress.ShowDialog(form);
+        }
+        */
 
         /*
         public IEnumerable<VSITEMSELECTION> GetCurrentSelection()

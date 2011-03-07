@@ -37,8 +37,8 @@ namespace ReviewBoardVsx.Package.Tracker
 
         private readonly Dictionary<string, string> mapItemProjects = new Dictionary<string,string>();
 
-        public bool IsInitialChangeFindFinished { get; private set; }
-        private Thread threadInitialChangeFind;
+        public bool IsInitialSolutionCrawlFinished { get; private set; }
+        private Thread threadInitialSolutionCrawl;
 
         public BackgroundWorker BackgroundWorker { get; set; }
 
@@ -347,6 +347,7 @@ namespace ReviewBoardVsx.Package.Tracker
             try
             {
                 MyPackage.TraceEnter(this, "Initialize()");
+                // TODO:(pv) Should I do this at SolutionOpen?
                 base.Initialize();
                 projectTracker.Initialize();
             }
@@ -361,6 +362,8 @@ namespace ReviewBoardVsx.Package.Tracker
             try
             {
                 MyPackage.TraceEnter(this, "Dispose(" + disposing + ")");
+                // TODO:(pv) Should I do this at SolutionClose?
+                fileTracker.Dispose();
                 projectTracker.Dispose();
                 base.Dispose(disposing);
             }
@@ -377,23 +380,28 @@ namespace ReviewBoardVsx.Package.Tracker
             try
             {
                 MyPackage.TraceEnter(this, "OnAfterOpenSolution(" + pUnkReserved + ", " + fNewSolution + ")");
+
+                // TODO:(pv) What if another crawl is already running?
+                // TODO:(pv) Is this the best place for this?
                 lock (changes)
                 {
                     changes.Clear();
                 }
+                IsInitialSolutionCrawlFinished = false;
 
-                threadInitialChangeFind = new Thread(delegate() {
+                threadInitialSolutionCrawl = new Thread(delegate() {
                     try
                     {
                         MyPackage.TraceEnter(this, "EnumHierarchyItems");
                         EnumHierarchyItems((IVsHierarchy)Solution, VSConstants.VSITEMID_ROOT, 0, true, true);
+                        IsInitialSolutionCrawlFinished = true;
                     }
                     finally
                     {
                         MyPackage.TraceLeave(this, "EnumHierarchyItems");
                     }
                 });
-                threadInitialChangeFind.Start();
+                threadInitialSolutionCrawl.Start();
 
                 return VSConstants.S_OK;
             }
@@ -403,19 +411,32 @@ namespace ReviewBoardVsx.Package.Tracker
             }
         }
 
+        public override int OnQueryCloseSolution(object pUnkReserved, ref int cancel)
+        {
+            try
+            {
+                MyPackage.TraceEnter(this, "OnQueryCloseSolution(" + pUnkReserved + ", " + cancel + ")");
+                return VSConstants.S_OK; // We are not interested in this one
+            }
+            finally
+            {
+                MyPackage.TraceLeave(this, "OnQueryCloseSolution(" + pUnkReserved + ", " + cancel + ")");
+            }
+        }
+
         public override int OnBeforeCloseSolution(object pUnkReserved)
         {
             try
             {
                 MyPackage.TraceEnter(this, "OnBeforeCloseSolution(" + pUnkReserved + ")");
 
+                // TODO:(pv) Should this be done in Dispose?
+                threadInitialSolutionCrawl.Abort();
+                threadInitialSolutionCrawl = null;
                 lock (changes)
                 {
                     changes.Clear();
                 }
-
-                threadInitialChangeFind.Abort();
-                threadInitialChangeFind = null;
 
                 return VSConstants.S_OK;
             }
@@ -425,6 +446,18 @@ namespace ReviewBoardVsx.Package.Tracker
             }
         }
 
+        public override int OnAfterCloseSolution(object reserved)
+        {
+            try
+            {
+                MyPackage.TraceEnter(this, "OnAfterCloseSolution(" + reserved + ")");
+                return VSConstants.S_OK; // We are not interested in this one
+            }
+            finally
+            {
+                MyPackage.TraceLeave(this, "OnAfterCloseSolution(" + reserved + ")");
+            }
+        }
 
         /// <summary>
         /// The project has been opened.
@@ -490,32 +523,6 @@ namespace ReviewBoardVsx.Package.Tracker
             finally
             {
                 MyPackage.TraceLeave(this, "OnQueryCloseProject(" + hierarchy + ", " + removing + ", " + cancel + ")");
-            }
-        }
-
-        public override int OnQueryCloseSolution(object pUnkReserved, ref int cancel)
-        {
-            try
-            {
-                MyPackage.TraceEnter(this, "OnQueryCloseSolution(" + pUnkReserved + ", " + cancel + ")");
-                return VSConstants.S_OK; // We are not interested in this one
-            }
-            finally
-            {
-                MyPackage.TraceLeave(this, "OnQueryCloseSolution(" + pUnkReserved + ", " + cancel + ")");
-            }
-        }
-
-        public override int OnAfterCloseSolution(object reserved)
-        {
-            try
-            {
-                MyPackage.TraceEnter(this, "OnAfterCloseSolution(" + reserved + ")");
-                return VSConstants.S_OK; // We are not interested in this one
-            }
-            finally
-            {
-                MyPackage.TraceLeave(this, "OnAfterCloseSolution(" + reserved + ")");
             }
         }
 
@@ -968,12 +975,12 @@ namespace ReviewBoardVsx.Package.Tracker
 
                 filePath = filePath.ToLower();
 
-                // Always track the file for *future* changes, even if there are no *current* changes.
+                // *Always* track the file for *future* changes, even if there are no *current* changes.
                 // This is a no-op if the path is already being tracked.
                 fileTracker.Subscribe(filePath, true);
 
-                // Map the file path to a project so that future file changes can find out what project the file is in.
-                // This will overwrite any existing value, which seems fine.
+                // Map the file path to a project so that future file changes can find out what project the file is in given just the file path.
+                // This will overwrite any existing value...which seems fine for now.
                 mapItemProjects[filePath] = project;
             }
             finally

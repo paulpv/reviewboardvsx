@@ -296,7 +296,6 @@
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "ReviewBoard";
             this.Load += new System.EventHandler(this.FormSubmit_Load);
-            this.Shown += new System.EventHandler(this.FormSubmit_Shown);
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FormSubmit_FormClosing);
             this.groupBox1.ResumeLayout(false);
             this.tableLayoutPanel1.ResumeLayout(false);

@@ -22,13 +22,18 @@ namespace ReviewBoardVsx.UI
     {
         public PostReview.ReviewInfo Review { get; protected set; }
 
-        MySolutionTracker solutionTracker;
+        private PostReview.SubmitItemReadOnlyCollection solutionChanges;
 
-        public FormSubmit(MySolutionTracker solutionTracker)
+        public FormSubmit(PostReview.SubmitItemReadOnlyCollection solutionChanges)
         {
             InitializeComponent();
 
-            this.solutionTracker = solutionTracker;
+            if (solutionChanges == null)
+            {
+                throw new ArgumentNullException("solutionChanges");
+            }
+
+            this.solutionChanges = solutionChanges;
         }
 
         private void FormSubmit_Load(object sender, EventArgs e)
@@ -49,19 +54,8 @@ namespace ReviewBoardVsx.UI
             buttonOk.Enabled = false;
 
             InitializeReviewIds(false);
-        }
 
-        private void FormSubmit_Shown(object sender, EventArgs e)
-        {
-            if (!solutionTracker.IsInitialChangeFindFinished)
-            {
-                // DoFindSolutionChanges will finish initializing remaining controls as and after it finishes crawling the solution
-                DoFindSolutionChanges(this);
-            }
-            else
-            {
-                OnFindSolutionChangesDone();
-            }
+            InitializeSolutionChanges();
         }
 
         private void buttonClearReviewIds_Click(object sender, EventArgs e)
@@ -143,6 +137,36 @@ namespace ReviewBoardVsx.UI
             if (comboReviewIds.Items.Count > 0)
                 comboReviewIds.SelectedIndex = 0;
             comboReviewIds.EndUpdate();
+        }
+
+        private void InitializeSolutionChanges()
+        {
+            string commonRoot = MyUtils.GetCommonRoot(new List<string>(solutionChanges.Select(p => p.FullPath))) + '\\';
+            commonRoot = Regex.Escape(commonRoot);
+
+            string pathFull;
+            string pathShort;
+            ListViewItem item;
+
+            listPaths.BeginUpdate();
+            listPaths.Items.Clear();
+            foreach (PostReview.SubmitItem solutionChange in solutionChanges)
+            {
+                pathFull = solutionChange.FullPath;
+                pathShort = Regex.Replace(pathFull, commonRoot, "", RegexOptions.IgnoreCase);
+                item = listPaths.Items.Add(pathShort);
+                item.SubItems.Add(solutionChange.Project).Name = "Project";
+                item.SubItems.Add(solutionChange.DiffType.ToString()).Name = "Change";
+                item.SubItems.Add(pathFull).Name = "FullPath";
+            }
+
+            ColumnHeaderAutoResizeStyle resizeStyle = (solutionChanges.Count == 0) ? ColumnHeaderAutoResizeStyle.HeaderSize : ColumnHeaderAutoResizeStyle.ColumnContent;
+            foreach (ColumnHeader columnHeader in listPaths.Columns)
+            {
+                columnHeader.AutoResize(resizeStyle);
+            }
+            // TODO:(pv) Sort Project by Solution, Solution Items, Project(s)...
+            listPaths.EndUpdate();
         }
 
         #region Private property getters
@@ -297,120 +321,6 @@ namespace ReviewBoardVsx.UI
         }
 
         #endregion comboReviewIds keyboard/mouse input handlers
-
-        #region FindSolutionChanges
-
-        // TODO:(pv) Make this static, like DoPostReview
-        void DoFindSolutionChanges(FormSubmit form)
-        {
-            DoWorkEventHandler handlerFindSolutionChanges = (s, e) =>
-            {
-                BackgroundWorker bw = s as BackgroundWorker;
-
-                //IVsSolution solution = package.GetSolution();
-                //if (solution == null)
-                //{
-                //    MyPackage.OutputGeneral("ERROR: Cannot get solution object");
-                //    ErrorHandler.ThrowOnFailure(VSConstants.E_UNEXPECTED);
-                //}
-
-                // TODO:(pv) Get changes from MySolutionTracker.Changes
-                PostReview.SubmitItemCollection changes = new PostReview.SubmitItemCollection();
-
-                e.Result = changes.AsReadOnly();
-
-                if (bw.CancellationPending)
-                {
-                    e.Cancel = true;
-                }
-            };
-
-            FormProgress progress = new FormProgress("Finding solution changes...", "Finding solution changes...", handlerFindSolutionChanges);
-
-            progress.FormClosed += (s, e) =>
-            {
-                bool cancel = false;
-
-                Exception error = progress.Error;
-                if (error != null)
-                {
-                    StringBuilder message = new StringBuilder();
-
-                    message.AppendLine("Error finding solution changes:");
-                    message.AppendLine();
-                    if (error is PostReview.PostReviewException)
-                    {
-                        message.Append(error.ToString());
-                        message.AppendLine();
-                        message.Append("Make sure ").Append(PostReview.PostReviewExe).AppendLine(" is in your PATH!");
-                    }
-                    else
-                    {
-                        message.Append(error.Message);
-                    }
-                    message.AppendLine();
-                    message.Append("Click \"OK\" to return to Visual Studio.");
-
-                    MessageBox.Show(form, message.ToString(), "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
-
-                    cancel = true;
-                }
-                else
-                {
-                    PostReview.SubmitItemReadOnlyCollection solutionChanges = (PostReview.SubmitItemReadOnlyCollection)progress.Result;
-                    if (solutionChanges == null)
-                    {
-                        cancel = true;
-                    }
-                    else
-                    {
-                        OnFindSolutionChangesDone();
-                    }
-                }
-
-                if (cancel)
-                {
-                    form.DialogResult = DialogResult.Cancel;
-                    form.Close();
-                }
-            };
-
-            progress.ShowDialog(form);
-        }
-
-        private void OnFindSolutionChangesDone()
-        {
-            PostReview.SubmitItemReadOnlyCollection solutionChanges = solutionTracker.Changes;
-
-            string commonRoot = MyUtils.GetCommonRoot(new List<string>(solutionChanges.Select(p => p.FullPath))) + '\\';
-            commonRoot = Regex.Escape(commonRoot);
-
-            string pathFull;
-            string pathShort;
-            ListViewItem item;
-
-            listPaths.BeginUpdate();
-            listPaths.Items.Clear();
-            foreach (PostReview.SubmitItem solutionChange in solutionChanges)
-            {
-                pathFull = solutionChange.FullPath;
-                pathShort = Regex.Replace(pathFull, commonRoot, "", RegexOptions.IgnoreCase);
-                item = listPaths.Items.Add(pathShort);
-                item.SubItems.Add(solutionChange.Project).Name = "Project";
-                item.SubItems.Add(solutionChange.DiffType.ToString()).Name = "Change";
-                item.SubItems.Add(pathFull).Name = "FullPath";
-            }
-
-            ColumnHeaderAutoResizeStyle resizeStyle = (solutionChanges.Count == 0) ? ColumnHeaderAutoResizeStyle.HeaderSize : ColumnHeaderAutoResizeStyle.ColumnContent;
-            foreach (ColumnHeader columnHeader in listPaths.Columns)
-            {
-                columnHeader.AutoResize(resizeStyle);
-            }
-            // TODO:(pv) Sort Project by Solution, Solution Items, Project(s)...
-            listPaths.EndUpdate();
-        }
-
-        #endregion FindSolutionChanges
 
         #region DoPostReview
 
