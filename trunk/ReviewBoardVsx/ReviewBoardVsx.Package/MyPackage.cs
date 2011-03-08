@@ -13,29 +13,6 @@ namespace ReviewBoardVsx.Package
     //[ComVisible(true)]
     public class MyPackage : Microsoft.VisualStudio.Shell.Package
     {
-        private static String NormalizeMethodName(String methodName)
-        {
-            if (!methodName.EndsWith(")"))
-            {
-                methodName += "(...)";
-            }
-            if (!methodName.Equals("()") && !methodName.StartsWith("."))
-            {
-                methodName = "." + methodName;
-            }
-            return methodName;
-        }
-
-        public static void TraceEnter(Object o, String methodName)
-        {
-            Trace.WriteLine(string.Format("+{0}{1}", o.ToString(), NormalizeMethodName(methodName)));
-        }
-
-        public static void TraceLeave(Object o, String methodName)
-        {
-            Trace.WriteLine(string.Format("-{0}{1}", o.ToString(), NormalizeMethodName(methodName)));
-        }
-
         /// <summary>
         /// Gets the item id.
         /// </summary>
@@ -50,31 +27,6 @@ namespace ReviewBoardVsx.Package
             if (pvar is ushort) return (uint)(ushort)pvar;
             if (pvar is long) return (uint)(long)pvar;
             return VSConstants.VSITEMID_NIL;
-        }
-
-        public T GetService<T>() where T : class
-        {
-            return GetService<T>(typeof(T));
-        }
-
-        public T GetService<T>(Type type) where T : class
-        {
-            return GetService(type) as T;
-        }
-
-        public new Object GetService(Type type)
-        {
-            return base.GetService(type);
-        }
-
-        public IVsSolution GetSolution()
-        {
-            return GetService<SVsSolution>() as IVsSolution;
-        }
-
-        public IVsLaunchPad GetLaunchPad()
-        {
-            return GetService<SVsLaunchPad>() as IVsLaunchPad;
         }
 
         public static IVsMonitorSelection GetMonitorSelection()
@@ -122,6 +74,33 @@ namespace ReviewBoardVsx.Package
             {
                 Trace.WriteLine("Failed to write on the output window");
             }
+        }
+
+        public T GetService<T>() where T : class
+        {
+            return GetService<T>(typeof(T));
+        }
+
+        public T GetService<T>(Type type) where T : class
+        {
+            return GetService(type) as T;
+        }
+
+        /*
+        public new Object GetService(Type type)
+        {
+            return base.GetService(type);
+        }
+        */
+
+        public IVsSolution GetSolution()
+        {
+            return GetService<SVsSolution>() as IVsSolution;
+        }
+
+        public IVsLaunchPad GetLaunchPad()
+        {
+            return GetService<SVsLaunchPad>() as IVsLaunchPad;
         }
 
         public IVsWebBrowsingService GetWebBrowsingService()

@@ -101,6 +101,15 @@ namespace ReviewBoardVsx.Package
             return output;
         }
 
+        public enum DiffType
+        {
+            Normal,
+            Added,
+            Changed,
+            Modified,
+            External,
+        }
+
         public class SubmitItem
         {
             public string FullPath { get; protected set; }
@@ -133,15 +142,6 @@ namespace ReviewBoardVsx.Package
         }
 
         #region DiffFile
-
-        public enum DiffType
-        {
-            Normal,
-            Added,
-            Changed,
-            Modified,
-            External,
-        }
 
         public static DiffType DiffFile(string path, out string diff)
         {

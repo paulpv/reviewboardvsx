@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.ComponentModel.Design;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows.Forms;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
@@ -48,8 +49,8 @@ namespace ReviewBoardVsx.Package
         /// </summary>
         public ReviewBoardVsPackage()
         {
-            TraceEnter(this, "()");
-            TraceLeave(this, "()");
+            MyLog.DebugEnter(this, "()");
+            MyLog.DebugLeave(this, "()");
         }
 
         /// <summary>
@@ -58,12 +59,18 @@ namespace ReviewBoardVsx.Package
         /// </summary>
         protected override void Initialize()
         {
-            TraceEnter(this, "Initialize()");
+            MyLog.DebugEnter(this, "Initialize()");
 
             base.Initialize();
 
+            // TODO:(pv) Since crawling starts post-reviewing in the background, we may need to test for post-review
+            // and notify user if we cannot find it in the path...or if there is any other error while crawling.
+            // This may not be necessary if the crawler properly reports error back to VS
+
             solutionTracker = new MySolutionTracker(this);
+            solutionTracker.BackgroundInitialSolutionCrawl.RunWorkerCompleted += BackgroundInitialSolutionCrawl_RunWorkerCompleted;
             solutionTracker.Initialize();
+            // NOTE: solutionTracker handles OnAfterOpenSolution and starts crawling the Solution then
 
             OleMenuCommandService mcs = GetService<IMenuCommandService>() as OleMenuCommandService;
             if (null != mcs)
@@ -81,13 +88,13 @@ namespace ReviewBoardVsx.Package
                 mcs.AddCommand(commandReviewBoard);
             }
 
-            TraceLeave(this, "Initialize()");
+            MyLog.DebugLeave(this, "Initialize()");
         }
 
         void commandReviewBoard_BeforeQueryStatus(object sender, EventArgs e)
         {
-            TraceEnter(this, "commandReviewBoard_BeforeQueryStatus(...)");
-            TraceLeave(this, "commandReviewBoard_BeforeQueryStatus(...)");
+            MyLog.DebugEnter(this, "commandReviewBoard_BeforeQueryStatus(...)");
+            MyLog.DebugLeave(this, "commandReviewBoard_BeforeQueryStatus(...)");
         }
 
         private void ReviewBoardCommand(object caller, EventArgs args)
@@ -106,103 +113,94 @@ namespace ReviewBoardVsx.Package
                 owp.Activate();
             }
 
-            if (solutionTracker.IsInitialSolutionCrawlFinished)
+            if (!solutionTracker.BackgroundInitialSolutionCrawl.IsBusy)
             {
-                FormSubmit form = new FormSubmit(solutionTracker.Changes);
-                if (form.ShowDialog() == DialogResult.OK)
-                {
-                    PostReview.ReviewInfo reviewInfo = form.Review;
-                    if (reviewInfo != null)
-                    {
-                        VsBrowseUrl(reviewInfo.Uri);
-                    }
-                }
+                // The initial solution crawl is finished.
+                // Just show the submit form as usual...
+                ShowFormSubmit();
             }
             else
             {
-                // TODO:(pv) Show dialog/progress bar indicating still crawling solution...
+                // The initial solution crawl is still in progress.
+                // Display a cancelable modal dialog until the solution crawl is finished.
+
+                string message = "Waiting for initial solution crawl to complete...";
+
+                FormProgress progress = new FormProgress(message, message, solutionTracker.BackgroundInitialSolutionCrawl);
+                DialogResult result = progress.ShowDialog();
+                if (result == DialogResult.OK)
+                {
+                    ShowFormSubmit();
+                }
             }
         }
 
-        /*
-        // TODO:(pv) Make this static, like DoPostReview
-        void DoFindSolutionChanges(FormSubmit form)
+        void BackgroundInitialSolutionCrawl_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
-            DoWorkEventHandler handlerFindSolutionChanges = (s, e) =>
+            try
             {
-                BackgroundWorker bw = s as BackgroundWorker;
+                MyLog.DebugEnter(this, "BackgroundInitialSolutionCrawl_RunWorkerCompleted(...)");
 
-                //IVsSolution solution = package.GetSolution();
-                //if (solution == null)
-                //{
-                //    MyPackage.OutputGeneral("ERROR: Cannot get solution object");
-                //    ErrorHandler.ThrowOnFailure(VSConstants.E_UNEXPECTED);
-                //}
+                //
+                // Reference:
+                //  http://msdn.microsoft.com/en-us/library/system.componentmodel.backgroundworker.runworkercompleted.aspx
+                //
+                //  "Your RunWorkerCompleted event handler should always check the 
+                //  AsyncCompletedEventArgs.Error and AsyncCompletedEventArgs.Cancelled
+                //  properties before accessing the RunWorkerCompletedEventArgs.Result property.
+                //  If an exception was raised or if the operation was canceled, accessing the
+                //  RunWorkerCompletedEventArgs.Result property raises an exception."
+                //
+                // See also:
+                //  http://www.developerdotstar.com/community/node/671
+                //
 
-                // TODO:(pv) Get changes from MySolutionTracker.Changes
-                PostReview.SubmitItemCollection changes = new PostReview.SubmitItemCollection();
-
-                e.Result = changes.AsReadOnly();
-
-                if (bw.CancellationPending)
+                Exception error = e.Error;
+                if (error == null)
                 {
-                    e.Cancel = true;
+                    Debug.WriteLine("BackgroundInitialSolutionCrawl completed successfully with no errors");
+                    return;
                 }
-            };
 
-            FormProgress progress = new FormProgress("Finding solution changes...", "Finding solution changes...", handlerFindSolutionChanges);
+                Debug.WriteLine("BackgroundInitialSolutionCrawl encountered error");
 
-            progress.FormClosed += (s, e) =>
-            {
-                bool cancel = false;
+                StringBuilder message = new StringBuilder();
 
-                Exception error = progress.Error;
-                if (error != null)
+                message.AppendLine("Error finding solution changes:");
+                message.AppendLine();
+                if (error is PostReview.PostReviewException)
                 {
-                    StringBuilder message = new StringBuilder();
-
-                    message.AppendLine("Error finding solution changes:");
+                    message.Append(error.ToString());
                     message.AppendLine();
-                    if (error is PostReview.PostReviewException)
-                    {
-                        message.Append(error.ToString());
-                        message.AppendLine();
-                        message.Append("Make sure ").Append(PostReview.PostReviewExe).AppendLine(" is in your PATH!");
-                    }
-                    else
-                    {
-                        message.Append(error.Message);
-                    }
-                    message.AppendLine();
-                    message.Append("Click \"OK\" to return to Visual Studio.");
-
-                    MessageBox.Show(form, message.ToString(), "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
-
-                    cancel = true;
+                    message.Append("Make sure ").Append(PostReview.PostReviewExe).AppendLine(" is in your PATH!");
                 }
                 else
                 {
-                    PostReview.SubmitItemReadOnlyCollection solutionChanges = (PostReview.SubmitItemReadOnlyCollection)progress.Result;
-                    if (solutionChanges == null)
-                    {
-                        cancel = true;
-                    }
-                    else
-                    {
-                        OnFindSolutionChangesDone();
-                    }
+                    message.Append(error.Message);
                 }
+                message.AppendLine();
+                message.Append("Click \"OK\" to return to Visual Studio.");
 
-                if (cancel)
-                {
-                    form.DialogResult = DialogResult.Cancel;
-                    form.Close();
-                }
-            };
-
-            progress.ShowDialog(form);
+                MessageBox.Show(message.ToString(), "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                MyLog.DebugLeave(this, "BackgroundInitialSolutionCrawl_RunWorkerCompleted(...)");
+            }
         }
-        */
+
+        private void ShowFormSubmit()
+        {
+            FormSubmit form = new FormSubmit(solutionTracker.Changes);
+            if (form.ShowDialog() == DialogResult.OK)
+            {
+                PostReview.ReviewInfo reviewInfo = form.Review;
+                if (reviewInfo != null)
+                {
+                    VsBrowseUrl(reviewInfo.Uri);
+                }
+            }
+        }
 
         /*
         public IEnumerable<VSITEMSELECTION> GetCurrentSelection()

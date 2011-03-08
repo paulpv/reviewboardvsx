@@ -141,6 +141,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Ankh\Ankh.Package\Attributes\ProvideMenuResourceEx.cs" />
+    <Compile Include="MyLog.cs" />
     <Compile Include="MyPackage.cs" />
     <Compile Include="MyUtils.cs" />
     <Compile Include="PostReview.cs" />

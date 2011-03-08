@@ -77,6 +77,7 @@ namespace ReviewBoardVsx.Package.Tracker
                 {
                     filepath = filepath.ToLower();
                 }
+
                 lock (eventCookies)
                 {
                     if (!eventCookies.ContainsKey(filepath))
@@ -94,11 +95,12 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             if (fileChangeEx != null && !String.IsNullOrEmpty(filepath))
             {
-                uint cookie;
                 if (!prelowered)
                 {
                     filepath = filepath.ToLower();
                 }
+
+                uint cookie;
                 lock (eventCookies)
                 {
                     if (eventCookies.TryGetValue(filepath, out cookie))
@@ -114,11 +116,12 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             if (fileChangeEx != null && !String.IsNullOrEmpty(filepath))
             {
-                uint cookie;
                 if (!prelowered)
                 {
                     filepath = filepath.ToLower();
                 }
+
+                uint cookie;
                 lock (eventCookies)
                 {
                     if (eventCookies.TryGetValue(filepath, out cookie))
