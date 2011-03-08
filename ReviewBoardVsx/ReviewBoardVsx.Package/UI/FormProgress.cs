@@ -15,18 +15,21 @@ namespace ReviewBoardVsx.UI
         public object Result { get; protected set; }
         public Exception Error { get; protected set; }
 
-        public FormProgress(string title, string label, DoWorkEventHandler handler)
+        private readonly BackgroundWorker backgroundWorker;
+
+        public FormProgress(string title, string label, BackgroundWorker backgroundWorker)
         {
             InitializeComponent();
 
             this.Text = title;
-            this.label1.Text = label;
+            labelProgress.Text = label;
 
-            backgroundWorker1.WorkerReportsProgress = true;
-            backgroundWorker1.WorkerSupportsCancellation = true;
-            backgroundWorker1.DoWork += handler;
-            backgroundWorker1.ProgressChanged += new ProgressChangedEventHandler(backgroundWorker1_ProgressChanged);
-            backgroundWorker1.RunWorkerCompleted += new RunWorkerCompletedEventHandler(backgroundWorker1_RunWorkerCompleted);
+            if (backgroundWorker != null)
+            {
+                backgroundWorker.ProgressChanged += backgroundWorker_ProgressChanged;
+                backgroundWorker.RunWorkerCompleted += backgroundWorker_RunWorkerCompleted;
+            }
+            this.backgroundWorker = backgroundWorker;
         }
 
         private void FormProgress_Resize(object sender, EventArgs e)
@@ -37,19 +40,28 @@ namespace ReviewBoardVsx.UI
         private void FormSubmitProgress_Load(object sender, EventArgs e)
         {
             CenterToParent();
-            backgroundWorker1.RunWorkerAsync();
+            if (backgroundWorker != null && !backgroundWorker.IsBusy)
+            {
+                backgroundWorker.RunWorkerAsync();
+            }
         }
 
         private void FormSubmitProgress_FormClosing(object sender, FormClosingEventArgs e)
         {
-            lock (backgroundWorker1)
+            if (DialogResult == DialogResult.None)
             {
-                if (backgroundWorker1.IsBusy)
+                if (backgroundWorker != null)
                 {
-                    Cancel();
+                    lock (backgroundWorker)
+                    {
+                        if (backgroundWorker.IsBusy)
+                        {
+                            Cancel();
 
-                    // Cancel this close & let the background worker close the form later
-                    e.Cancel = true;
+                            // Cancel this close & let the background worker close the form later
+                            e.Cancel = true;
+                        }
+                    }
                 }
             }
         }
@@ -63,19 +75,36 @@ namespace ReviewBoardVsx.UI
         {
             buttonCancel.Enabled = false;
             DialogResult = DialogResult.Cancel;
-            label1.Text = "Canceling...";
-            backgroundWorker1.CancelAsync();
+
+            bool pending = false;
+            if (backgroundWorker != null)
+            {
+                lock (backgroundWorker)
+                {
+                    if (backgroundWorker.WorkerSupportsCancellation && backgroundWorker.IsBusy)
+                    {
+                        labelProgress.Text = "Canceling...";
+                        backgroundWorker.CancelAsync();
+                        pending = true;
+                    }
+                }
+            }
+
+            if (!pending)
+            {
+                Close();
+            }
         }
 
-        private void backgroundWorker1_ProgressChanged(object sender, ProgressChangedEventArgs e)
+        private void backgroundWorker_ProgressChanged(object sender, ProgressChangedEventArgs e)
         {
             progressBar1.Value = e.ProgressPercentage;
-            label1.Text = e.UserState as string;
+            labelProgress.Text = e.UserState as string;
         }
 
-        private void backgroundWorker1_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        private void backgroundWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
-            lock (backgroundWorker1)
+            lock (backgroundWorker)
             {
                 //
                 // Reference:
@@ -91,15 +120,21 @@ namespace ReviewBoardVsx.UI
                 //  http://www.developerdotstar.com/community/node/671
                 //
 
+                DialogResult = DialogResult.Cancel;
+                Error = null;
+                Result = null;
+
                 if (e.Error != null)
                 {
                     Error = e.Error;
-                    Result = null;
                 }
                 else
                 {
-                    Error = null;
-                    Result = (e.Cancelled) ? null : e.Result;
+                    if (!e.Cancelled)
+                    {
+                        Result = e.Result;
+                        DialogResult = DialogResult.OK;
+                    }
                 }
 
                 Close();

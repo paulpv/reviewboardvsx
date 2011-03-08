@@ -38,11 +38,8 @@ namespace ReviewBoardVsx.Package.Tracker
         private readonly Dictionary<string, string> mapItemProjects = new Dictionary<string,string>();
 
         public bool IsInitialSolutionCrawlFinished { get; private set; }
-        private Thread threadInitialSolutionCrawl;
+        public readonly BackgroundWorker BackgroundInitialSolutionCrawl;
 
-        public BackgroundWorker BackgroundWorker { get; set; }
-
-        //protected readonly MyPackage package;
         private readonly MyProjectTracker projectTracker;
         private readonly MyFileTracker fileTracker;
 
@@ -66,13 +63,13 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    MyPackage.TraceEnter(this, "OnQueryAddFiles");
+                    MyLog.DebugEnter(this, "OnQueryAddFiles");
                     //AddFilesIfChanged(rgpProjects, rgFirstIndices, rgpszMkDocuments);
                     return VSConstants.S_OK;
                 }
                 finally
                 {
-                    MyPackage.TraceLeave(this, "OnQueryAddFiles");
+                    MyLog.DebugLeave(this, "OnQueryAddFiles");
                 }
             }
 
@@ -80,12 +77,12 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    MyPackage.TraceEnter(this, "OnAfterAddFilesEx");
+                    MyLog.DebugEnter(this, "OnAfterAddFilesEx");
                     return VSConstants.S_OK;
                 }
                 finally
                 {
-                    MyPackage.TraceLeave(this, "OnAfterAddFilesEx");
+                    MyLog.DebugLeave(this, "OnAfterAddFilesEx");
                 }
             }
 
@@ -93,7 +90,7 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    MyPackage.TraceEnter(this, "OnQueryRenameFiles");
+                    MyLog.DebugEnter(this, "OnQueryRenameFiles");
 
                     string oldname, newname;
                     for (int i = 0; i < cFiles; i++)
@@ -106,7 +103,7 @@ namespace ReviewBoardVsx.Package.Tracker
                 }
                 finally
                 {
-                    MyPackage.TraceLeave(this, "OnQueryRenameFiles");
+                    MyLog.DebugLeave(this, "OnQueryRenameFiles");
                 }
             }
 
@@ -114,12 +111,12 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    MyPackage.TraceEnter(this, "OnAfterRenameFiles");
+                    MyLog.DebugEnter(this, "OnAfterRenameFiles");
                     return VSConstants.S_OK;
                 }
                 finally
                 {
-                    MyPackage.TraceLeave(this, "OnAfterRenameFiles");
+                    MyLog.DebugLeave(this, "OnAfterRenameFiles");
                 }
             }
 
@@ -127,7 +124,7 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    MyPackage.TraceEnter(this, "OnQueryRemoveFiles");
+                    MyLog.DebugEnter(this, "OnQueryRemoveFiles");
                     string name;
                     for (int i = 0; i < cFiles; i++)
                     {
@@ -138,7 +135,7 @@ namespace ReviewBoardVsx.Package.Tracker
                 }
                 finally
                 {
-                    MyPackage.TraceLeave(this, "OnQueryRemoveFiles");
+                    MyLog.DebugLeave(this, "OnQueryRemoveFiles");
                 }
             }
 
@@ -146,12 +143,12 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    MyPackage.TraceEnter(this, "OnAfterRemoveFiles");
+                    MyLog.DebugEnter(this, "OnAfterRemoveFiles");
                     return VSConstants.S_OK;
                 }
                 finally
                 {
-                    MyPackage.TraceLeave(this, "OnAfterRemoveFiles");
+                    MyLog.DebugLeave(this, "OnAfterRemoveFiles");
                 }
             }
 
@@ -159,12 +156,12 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    MyPackage.TraceEnter(this, "OnQueryAddDirectories");
+                    MyLog.DebugEnter(this, "OnQueryAddDirectories");
                     return VSConstants.S_OK;
                 }
                 finally
                 {
-                    MyPackage.TraceLeave(this, "OnQueryAddDirectories");
+                    MyLog.DebugLeave(this, "OnQueryAddDirectories");
                 }
             }
 
@@ -172,12 +169,12 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    MyPackage.TraceEnter(this, "OnAfterAddDirectoriesEx");
+                    MyLog.DebugEnter(this, "OnAfterAddDirectoriesEx");
                     return VSConstants.S_OK;
                 }
                 finally
                 {
-                    MyPackage.TraceLeave(this, "OnAfterAddDirectoriesEx");
+                    MyLog.DebugLeave(this, "OnAfterAddDirectoriesEx");
                 }
             }
 
@@ -185,12 +182,12 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    MyPackage.TraceEnter(this, "OnQueryRenameDirectories");
+                    MyLog.DebugEnter(this, "OnQueryRenameDirectories");
                     return VSConstants.S_OK;
                 }
                 finally
                 {
-                    MyPackage.TraceLeave(this, "OnQueryRenameDirectories");
+                    MyLog.DebugLeave(this, "OnQueryRenameDirectories");
                 }
             }
 
@@ -198,12 +195,12 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    MyPackage.TraceEnter(this, "OnAfterRemoveDirectories");
+                    MyLog.DebugEnter(this, "OnAfterRemoveDirectories");
                     return VSConstants.S_OK;
                 }
                 finally
                 {
-                    MyPackage.TraceLeave(this, "OnAfterRemoveDirectories");
+                    MyLog.DebugLeave(this, "OnAfterRemoveDirectories");
                 }
             }
 
@@ -211,12 +208,12 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    MyPackage.TraceEnter(this, "OnQueryRemoveDirectories");
+                    MyLog.DebugEnter(this, "OnQueryRemoveDirectories");
                     return VSConstants.S_OK;
                 }
                 finally
                 {
-                    MyPackage.TraceLeave(this, "OnQueryRemoveDirectories");
+                    MyLog.DebugLeave(this, "OnQueryRemoveDirectories");
                 }
             }
 
@@ -224,12 +221,12 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    MyPackage.TraceEnter(this, "OnAfterRenameDirectories");
+                    MyLog.DebugEnter(this, "OnAfterRenameDirectories");
                     return VSConstants.S_OK;
                 }
                 finally
                 {
-                    MyPackage.TraceLeave(this, "OnAfterRenameDirectories");
+                    MyLog.DebugLeave(this, "OnAfterRenameDirectories");
                 }
             }
 
@@ -237,12 +234,12 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    MyPackage.TraceEnter(this, "OnAfterSccStatusChanged");
+                    MyLog.DebugEnter(this, "OnAfterSccStatusChanged");
                     return VSConstants.S_OK;
                 }
                 finally
                 {
-                    MyPackage.TraceLeave(this, "OnAfterSccStatusChanged");
+                    MyLog.DebugLeave(this, "OnAfterSccStatusChanged");
                 }
             }
 
@@ -317,7 +314,7 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 try
                 {
-                    MyPackage.TraceEnter(this, "FilesChanged(" + cChanges + ", " + rgpszFile + ", " + rggrfChange + ")");
+                    MyLog.DebugEnter(this, "FilesChanged(" + cChanges + ", " + rgpszFile + ", " + rggrfChange + ")");
 
                     foreach(string filepath in rgpszFile)
                     {
@@ -328,7 +325,7 @@ namespace ReviewBoardVsx.Package.Tracker
                 }
                 finally
                 {
-                    MyPackage.TraceLeave(this, "FilesChanged(" + cChanges + ", " + rgpszFile + ", " + rggrfChange + ")");
+                    MyLog.DebugLeave(this, "FilesChanged(" + cChanges + ", " + rgpszFile + ", " + rggrfChange + ")");
                 }
             }
         }
@@ -340,20 +337,24 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             this.projectTracker = new MyProjectTracker(this);
             this.fileTracker = new MyFileTracker(this);
+
+            BackgroundInitialSolutionCrawl = new BackgroundWorker();
+            BackgroundInitialSolutionCrawl.WorkerReportsProgress = true;
+            BackgroundInitialSolutionCrawl.DoWork += backgroundInitialSolutionCrawl_DoWork;
         }
 
         public override void Initialize()
         {
             try
             {
-                MyPackage.TraceEnter(this, "Initialize()");
+                MyLog.DebugEnter(this, "Initialize()");
                 // TODO:(pv) Should I do this at SolutionOpen?
                 base.Initialize();
                 projectTracker.Initialize();
             }
             finally
             {
-                MyPackage.TraceLeave(this, "Initialize()");
+                MyLog.DebugLeave(this, "Initialize()");
             }
         }
 
@@ -361,7 +362,7 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                MyPackage.TraceEnter(this, "Dispose(" + disposing + ")");
+                MyLog.DebugEnter(this, "Dispose(" + disposing + ")");
                 // TODO:(pv) Should I do this at SolutionClose?
                 fileTracker.Dispose();
                 projectTracker.Dispose();
@@ -369,8 +370,23 @@ namespace ReviewBoardVsx.Package.Tracker
             }
             finally
             {
-                MyPackage.TraceLeave(this, "Dispose(" + disposing + ")");
+                MyLog.DebugLeave(this, "Dispose(" + disposing + ")");
             }
+        }
+
+        void backgroundInitialSolutionCrawl_DoWork(object sender, DoWorkEventArgs e)
+        {
+            try
+            {
+                MyLog.DebugEnter(this, "EnumHierarchyItems");
+                EnumHierarchyItems((IVsHierarchy)Solution, VSConstants.VSITEMID_ROOT, 0, true, true);
+            }
+            finally
+            {
+                MyLog.DebugLeave(this, "EnumHierarchyItems");
+            }
+
+            IsInitialSolutionCrawlFinished = true;
         }
 
         #region event handlers
@@ -379,7 +395,7 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                MyPackage.TraceEnter(this, "OnAfterOpenSolution(" + pUnkReserved + ", " + fNewSolution + ")");
+                MyLog.DebugEnter(this, "OnAfterOpenSolution(" + pUnkReserved + ", " + fNewSolution + ")");
 
                 // TODO:(pv) What if another crawl is already running?
                 // TODO:(pv) Is this the best place for this?
@@ -387,27 +403,16 @@ namespace ReviewBoardVsx.Package.Tracker
                 {
                     changes.Clear();
                 }
+
                 IsInitialSolutionCrawlFinished = false;
 
-                threadInitialSolutionCrawl = new Thread(delegate() {
-                    try
-                    {
-                        MyPackage.TraceEnter(this, "EnumHierarchyItems");
-                        EnumHierarchyItems((IVsHierarchy)Solution, VSConstants.VSITEMID_ROOT, 0, true, true);
-                        IsInitialSolutionCrawlFinished = true;
-                    }
-                    finally
-                    {
-                        MyPackage.TraceLeave(this, "EnumHierarchyItems");
-                    }
-                });
-                threadInitialSolutionCrawl.Start();
+                BackgroundInitialSolutionCrawl.RunWorkerAsync();
 
                 return VSConstants.S_OK;
             }
             finally
             {
-                MyPackage.TraceLeave(this, "OnAfterOpenSolution(" + pUnkReserved + ", " + fNewSolution + ")");
+                MyLog.DebugLeave(this, "OnAfterOpenSolution(" + pUnkReserved + ", " + fNewSolution + ")");
             }
         }
 
@@ -415,12 +420,12 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                MyPackage.TraceEnter(this, "OnQueryCloseSolution(" + pUnkReserved + ", " + cancel + ")");
+                MyLog.DebugEnter(this, "OnQueryCloseSolution(" + pUnkReserved + ", " + cancel + ")");
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                MyPackage.TraceLeave(this, "OnQueryCloseSolution(" + pUnkReserved + ", " + cancel + ")");
+                MyLog.DebugLeave(this, "OnQueryCloseSolution(" + pUnkReserved + ", " + cancel + ")");
             }
         }
 
@@ -428,11 +433,12 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                MyPackage.TraceEnter(this, "OnBeforeCloseSolution(" + pUnkReserved + ")");
+                MyLog.DebugEnter(this, "OnBeforeCloseSolution(" + pUnkReserved + ")");
 
-                // TODO:(pv) Should this be done in Dispose?
-                threadInitialSolutionCrawl.Abort();
-                threadInitialSolutionCrawl = null;
+                BackgroundInitialSolutionCrawl.CancelAsync();
+
+                IsInitialSolutionCrawlFinished = false;
+
                 lock (changes)
                 {
                     changes.Clear();
@@ -442,7 +448,7 @@ namespace ReviewBoardVsx.Package.Tracker
             }
             finally
             {
-                MyPackage.TraceLeave(this, "OnBeforeCloseSolution(" + pUnkReserved + ")");
+                MyLog.DebugLeave(this, "OnBeforeCloseSolution(" + pUnkReserved + ")");
             }
         }
 
@@ -450,12 +456,12 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                MyPackage.TraceEnter(this, "OnAfterCloseSolution(" + reserved + ")");
+                MyLog.DebugEnter(this, "OnAfterCloseSolution(" + reserved + ")");
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                MyPackage.TraceLeave(this, "OnAfterCloseSolution(" + reserved + ")");
+                MyLog.DebugLeave(this, "OnAfterCloseSolution(" + reserved + ")");
             }
         }
 
@@ -469,13 +475,13 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                MyPackage.TraceEnter(this, "OnAfterOpenProject(" + hierarchy + ", " + added + ")");
+                MyLog.DebugEnter(this, "OnAfterOpenProject(" + hierarchy + ", " + added + ")");
                 // TODO:(pv) Start crawling the project items
                 return VSConstants.S_OK;
             }
             finally
             {
-                MyPackage.TraceLeave(this, "OnAfterOpenProject(" + hierarchy + ", " + added + ")");
+                MyLog.DebugLeave(this, "OnAfterOpenProject(" + hierarchy + ", " + added + ")");
             }
         }
 
@@ -483,13 +489,13 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                MyPackage.TraceEnter(this, "OnAfterRenameProject(" + hierarchy + ")");
+                MyLog.DebugEnter(this, "OnAfterRenameProject(" + hierarchy + ")");
                 // TODO:(pv) Rename the project item
                 return VSConstants.S_OK;
             }
             finally
             {
-                MyPackage.TraceLeave(this, "OnAfterRenameProject(" + hierarchy + ")");
+                MyLog.DebugLeave(this, "OnAfterRenameProject(" + hierarchy + ")");
             }
         }
 
@@ -503,13 +509,13 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                MyPackage.TraceEnter(this, "OnBeforeCloseProject(" + hierarchy + ", " + removed + ")");
+                MyLog.DebugEnter(this, "OnBeforeCloseProject(" + hierarchy + ", " + removed + ")");
                 // TODO:(pv) Remove the project items
                 return VSConstants.S_OK;
             }
             finally
             {
-                MyPackage.TraceLeave(this, "OnBeforeCloseProject(" + hierarchy + ", " + removed + ")");
+                MyLog.DebugLeave(this, "OnBeforeCloseProject(" + hierarchy + ", " + removed + ")");
             }
         }
 
@@ -517,12 +523,12 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                MyPackage.TraceEnter(this, "OnQueryCloseProject(" + hierarchy + ", " + removing + ", " + cancel + ")");
+                MyLog.DebugEnter(this, "OnQueryCloseProject(" + hierarchy + ", " + removing + ", " + cancel + ")");
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                MyPackage.TraceLeave(this, "OnQueryCloseProject(" + hierarchy + ", " + removing + ", " + cancel + ")");
+                MyLog.DebugLeave(this, "OnQueryCloseProject(" + hierarchy + ", " + removing + ", " + cancel + ")");
             }
         }
 
@@ -530,12 +536,12 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                MyPackage.TraceEnter(this, "OnAfterClosingChildren(" + hierarchy + ")");
+                MyLog.DebugEnter(this, "OnAfterClosingChildren(" + hierarchy + ")");
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                MyPackage.TraceLeave(this, "OnAfterClosingChildren(" + hierarchy + ")");
+                MyLog.DebugLeave(this, "OnAfterClosingChildren(" + hierarchy + ")");
             }
         }
 
@@ -543,12 +549,12 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                MyPackage.TraceEnter(this, "OnAfterLoadProject(" + stubHierarchy + ", " + realHierarchy + ")");
+                MyLog.DebugEnter(this, "OnAfterLoadProject(" + stubHierarchy + ", " + realHierarchy + ")");
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                MyPackage.TraceLeave(this, "OnAfterLoadProject(" + stubHierarchy + ", " + realHierarchy + ")");
+                MyLog.DebugLeave(this, "OnAfterLoadProject(" + stubHierarchy + ", " + realHierarchy + ")");
             }
         }
 
@@ -556,12 +562,12 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                MyPackage.TraceEnter(this, "OnAfterMergeSolution(" + pUnkReserved + ")");
+                MyLog.DebugEnter(this, "OnAfterMergeSolution(" + pUnkReserved + ")");
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                MyPackage.TraceLeave(this, "OnAfterMergeSolution(" + pUnkReserved + ")");
+                MyLog.DebugLeave(this, "OnAfterMergeSolution(" + pUnkReserved + ")");
             }
         }
 
@@ -569,12 +575,12 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                MyPackage.TraceEnter(this, "OnAfterOpeningChildren(" + hierarchy + ")");
+                MyLog.DebugEnter(this, "OnAfterOpeningChildren(" + hierarchy + ")");
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                MyPackage.TraceLeave(this, "OnAfterOpeningChildren(" + hierarchy + ")");
+                MyLog.DebugLeave(this, "OnAfterOpeningChildren(" + hierarchy + ")");
             }
         }
 
@@ -582,12 +588,12 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                MyPackage.TraceEnter(this, "OnBeforeClosingChildren(" + hierarchy + ")");
+                MyLog.DebugEnter(this, "OnBeforeClosingChildren(" + hierarchy + ")");
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                MyPackage.TraceLeave(this, "OnBeforeClosingChildren(" + hierarchy + ")");
+                MyLog.DebugLeave(this, "OnBeforeClosingChildren(" + hierarchy + ")");
             }
         }
 
@@ -595,12 +601,12 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                MyPackage.TraceEnter(this, "OnBeforeOpeningChildren(" + hierarchy + ")");
+                MyLog.DebugEnter(this, "OnBeforeOpeningChildren(" + hierarchy + ")");
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                MyPackage.TraceLeave(this, "OnBeforeOpeningChildren(" + hierarchy + ")");
+                MyLog.DebugLeave(this, "OnBeforeOpeningChildren(" + hierarchy + ")");
             }
         }
 
@@ -608,12 +614,12 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                MyPackage.TraceEnter(this, "OnBeforeUnloadProject(" + realHierarchy + ", " + stubHierarchy + ")");
+                MyLog.DebugEnter(this, "OnBeforeUnloadProject(" + realHierarchy + ", " + stubHierarchy + ")");
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                MyPackage.TraceLeave(this, "OnBeforeUnloadProject(" + realHierarchy + ", " + stubHierarchy + ")");
+                MyLog.DebugLeave(this, "OnBeforeUnloadProject(" + realHierarchy + ", " + stubHierarchy + ")");
             }
         }
 
@@ -621,12 +627,12 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                MyPackage.TraceEnter(this, "OnQueryUnloadProject(" + realHierarchy + ", " + cancel + ")");
+                MyLog.DebugEnter(this, "OnQueryUnloadProject(" + realHierarchy + ", " + cancel + ")");
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                MyPackage.TraceLeave(this, "OnQueryUnloadProject(" + realHierarchy + ", " + cancel + ")");
+                MyLog.DebugLeave(this, "OnQueryUnloadProject(" + realHierarchy + ", " + cancel + ")");
             }
         }
 
@@ -634,12 +640,12 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                MyPackage.TraceEnter(this, "OnAfterAsynchOpenProject(" + hierarchy + ", " + added + ")");
+                MyLog.DebugEnter(this, "OnAfterAsynchOpenProject(" + hierarchy + ", " + added + ")");
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                MyPackage.TraceLeave(this, "OnAfterAsynchOpenProject(" + hierarchy + ", " + added + ")");
+                MyLog.DebugLeave(this, "OnAfterAsynchOpenProject(" + hierarchy + ", " + added + ")");
             }
         }
 
@@ -647,13 +653,13 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                MyPackage.TraceEnter(this, "OnAfterChangeProjectParent(" + hierarchy + ")");
+                MyLog.DebugEnter(this, "OnAfterChangeProjectParent(" + hierarchy + ")");
                 // log this to see if needed
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                MyPackage.TraceLeave(this, "OnAfterChangeProjectParent(" + hierarchy + ")");
+                MyLog.DebugLeave(this, "OnAfterChangeProjectParent(" + hierarchy + ")");
             }
         }
 
@@ -661,17 +667,19 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             try
             {
-                MyPackage.TraceEnter(this, "OnQueryChangeProjectParent(" + hierarchy + ", " + newParentHier + ", " + cancel + ")");
+                MyLog.DebugEnter(this, "OnQueryChangeProjectParent(" + hierarchy + ", " + newParentHier + ", " + cancel + ")");
                 // log this to see if needed
                 return VSConstants.S_OK; // We are not interested in this one
             }
             finally
             {
-                MyPackage.TraceLeave(this, "OnQueryChangeProjectParent(" + hierarchy + ", " + newParentHier + ", " + cancel + ")");
+                MyLog.DebugLeave(this, "OnQueryChangeProjectParent(" + hierarchy + ", " + newParentHier + ", " + cancel + ")");
             }
         }
 
         #endregion
+
+        #region crawler method(s)
 
         /// <summary>
         /// Code almost 100% taken from VS SDK Example: SolutionHierarchyTraversal
@@ -685,7 +693,7 @@ namespace ReviewBoardVsx.Package.Tracker
         /// <returns>true if the caller should continue, false if the caller should stop</returns>
         private bool EnumHierarchyItems(IVsHierarchy hierarchy, uint itemid, int recursionLevel, bool hierIsSolution, bool visibleNodesOnly)//, PostReview.SubmitItemCollection changes)
         {
-            if (BackgroundWorker != null && BackgroundWorker.CancellationPending)
+            if (BackgroundInitialSolutionCrawl != null && BackgroundInitialSolutionCrawl.CancellationPending)
             {
                 return false;
             }
@@ -770,14 +778,14 @@ namespace ReviewBoardVsx.Package.Tracker
                 }
             }
 
-            return (BackgroundWorker == null || !BackgroundWorker.CancellationPending);
+            return (BackgroundInitialSolutionCrawl == null || !BackgroundInitialSolutionCrawl.CancellationPending);
         }
 
-        private void ProcessNode(IVsHierarchy hierarchy, uint itemId, int recursionLevel)//, PostReview.SubmitItemCollection changes)
+        private void ProcessNode(IVsHierarchy hierarchy, uint itemId, int recursionLevel)
         {
             try
             {
-                Debug.WriteLine("+ProcessNode(...): itemId=" + itemId);
+                MyLog.DebugEnter(this, "ProcessNode(hierarchy, " + itemId + ", " + recursionLevel + ")");
 
                 int hr;
 
@@ -908,7 +916,7 @@ namespace ReviewBoardVsx.Package.Tracker
             }
             finally
             {
-                Debug.WriteLine("-ProcessNode(...): itemId=" + itemId);
+                MyLog.DebugLeave(this, "ProcessNode(hierarchy, " + itemId + ", " + recursionLevel + ")");
             }
         }
 
@@ -922,11 +930,11 @@ namespace ReviewBoardVsx.Package.Tracker
             AddFilePathIfChanged(filePath, project);
         }
 
-        public void AddFilePathIfChanged(string filePath, string project)//, PostReview.SubmitItemCollection changes)
+        public void AddFilePathIfChanged(string filePath, string project)
         {
             try
             {
-                Debug.WriteLine("+AddFilePathIfChanged(\"" + filePath + "\", \"" + project + "\")");//, changes(" + changes.Count + "))");
+                MyLog.DebugEnter(this, "AddFilePathIfChanged(\"" + filePath + "\", \"" + project + "\")");
 
                 filePath = MyUtils.GetCasedFilePath(filePath);
                 if (String.IsNullOrEmpty(filePath))
@@ -937,12 +945,13 @@ namespace ReviewBoardVsx.Package.Tracker
                     return;
                 }
 
-                if (BackgroundWorker != null)
+                if (BackgroundInitialSolutionCrawl != null && BackgroundInitialSolutionCrawl.IsBusy)
                 {
                     // Percent is currently always 0, since our progress is indeterminate
                     // TODO:(pv) Find some way to determine # of nodes in tree *before* processing
-                    // NOTE:(pv) I did have the debugger halt here complaining invalid state that the form is not active
-                    BackgroundWorker.ReportProgress(0, filePath);
+                    //      Maybe do a quick first pass w/ no post-review?
+                    // NOTE:(pv) I did once have the debugger halt here complaining invalid state that the form is not active
+                    BackgroundInitialSolutionCrawl.ReportProgress(0, filePath);
                 }
 
                 string diff;
@@ -985,8 +994,10 @@ namespace ReviewBoardVsx.Package.Tracker
             }
             finally
             {
-                Debug.WriteLine("-AddFilePathIfChanged(\"" + filePath + "\", \"" + project + "\", changes(" + changes.Count + "))");
+                MyLog.DebugLeave(this, "AddFilePathIfChanged(\"" + filePath + "\", \"" + project + "\")");
             }
         }
+
+        #endregion crawler method(s)
     }
 }

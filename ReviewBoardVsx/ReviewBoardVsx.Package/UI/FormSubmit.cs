@@ -18,6 +18,9 @@ using ReviewBoardVsx.Package.Tracker;
 
 namespace ReviewBoardVsx.UI
 {
+    /// <summary>
+    /// TODO:(pv) Handle ability to refresh solution changes if item(s) are edited outside of VS
+    /// </summary>
     public partial class FormSubmit : Form
     {
         public PostReview.ReviewInfo Review { get; protected set; }
@@ -169,7 +172,7 @@ namespace ReviewBoardVsx.UI
             listPaths.EndUpdate();
         }
 
-        #region Private property getters
+        #region private property getters
 
         private int GetSelectedReviewId()
         {
@@ -204,7 +207,7 @@ namespace ReviewBoardVsx.UI
             return checkedFullPaths;
         }
 
-        #endregion Private property getters
+        #endregion private property getters
 
         #region comboReviewIds keyboard/mouse input handlers
 
@@ -329,10 +332,11 @@ namespace ReviewBoardVsx.UI
             int reviewId = form.GetSelectedReviewId();
             List<string> changes = form.GetCheckedFullPaths();
 
-            DoWorkEventHandler handlerPostReview = (s, e) =>
+            BackgroundWorker backgroundPostReview = new BackgroundWorker();
+            backgroundPostReview.WorkerReportsProgress = true;
+            backgroundPostReview.WorkerSupportsCancellation = true;
+            backgroundPostReview.DoWork += (s, e) =>
             {
-                BackgroundWorker bw = s as BackgroundWorker;
-
                 string server = form.textBoxServer.Text;
                 string username = form.textBoxUsername.Text;
                 string password = form.textBoxPassword.Text;
@@ -342,9 +346,9 @@ namespace ReviewBoardVsx.UI
                 PostReview.PostReviewOpen open = PostReview.PostReviewOpen.Internal;
                 bool debug = false;
 
-                e.Result = PostReview.Submit(bw, server, username, password, submitAs, reviewId, changes, publish, open, debug);
+                e.Result = PostReview.Submit(backgroundPostReview, server, username, password, submitAs, reviewId, changes, publish, open, debug);
 
-                if (bw.CancellationPending)
+                if (backgroundPostReview.CancellationPending)
                 {
                     e.Cancel = true;
                 }
@@ -352,7 +356,7 @@ namespace ReviewBoardVsx.UI
 
             string label = String.Format("Uploading Code Review #{0} ({1} files)...", reviewId, changes.Count);
 
-            FormProgress progress = new FormProgress("Uploading...", label, handlerPostReview);
+            FormProgress progress = new FormProgress("Uploading...", label, backgroundPostReview);
 
             progress.FormClosed += (s, e) =>
             {
