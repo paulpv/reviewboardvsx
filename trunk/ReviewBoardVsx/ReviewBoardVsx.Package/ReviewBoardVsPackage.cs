@@ -67,10 +67,8 @@ namespace ReviewBoardVsx.Package
             // and notify user if we cannot find it in the path...or if there is any other error while crawling.
             // This may not be necessary if the crawler properly reports error back to VS
 
-            solutionTracker = new MySolutionTracker(this);
-            solutionTracker.BackgroundInitialSolutionCrawl.RunWorkerCompleted += BackgroundInitialSolutionCrawl_RunWorkerCompleted;
-            solutionTracker.Initialize();
-            // NOTE: solutionTracker handles OnAfterOpenSolution and starts crawling the Solution then
+            // solutionTracker constructor subscribes to Solution events and starts crawling a solution after it is opened
+            solutionTracker = new MySolutionTracker(this, BackgroundInitialSolutionCrawl_RunWorkerCompleted);
 
             OleMenuCommandService mcs = GetService<IMenuCommandService>() as OleMenuCommandService;
             if (null != mcs)

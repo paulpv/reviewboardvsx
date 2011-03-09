@@ -1,15 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Threading;
-using System.Text;
 using Microsoft.VisualStudio;
-using Microsoft.VisualStudio.Package;
-using Microsoft.VisualStudio.Shell;
-using Microsoft.VisualStudio.Shell.Flavor;
 using Microsoft.VisualStudio.Shell.Interop;
 
 namespace ReviewBoardVsx.Package.Tracker
@@ -29,333 +23,44 @@ namespace ReviewBoardVsx.Package.Tracker
     public class MySolutionTracker : SolutionListener
     {
         /// <summary>
-        /// A list of all changed files in the solution and projects.
+        /// Private mutable collection of detected solution/project changes.
         /// </summary>
         private readonly PostReview.SubmitItemCollection changes = new PostReview.SubmitItemCollection();
 
+        /// <summary>
+        /// Public read-only collection of detected solution/project changes
+        /// </summary>
         public PostReview.SubmitItemReadOnlyCollection Changes { get { return changes.AsReadOnly(); } }
 
+        /// <summary>
+        /// Map of solution/project file paths to solution/project names.
+        /// This allows us to easily find the solution/project name given just the file path.
+        /// </summary>
         private readonly Dictionary<string, string> mapItemProjects = new Dictionary<string,string>();
 
-        public bool IsInitialSolutionCrawlFinished { get; private set; }
         public readonly BackgroundWorker BackgroundInitialSolutionCrawl;
 
-        private readonly MyProjectTracker projectTracker;
-        private readonly MyFileTracker fileTracker;
+        private MyProjectTracker projectTracker;
+        private MyFileTracker fileTracker;
 
-        #region MyProjectTracker
-
-        /// <summary>
-        /// Ideas came from:
-        /// http://www.java2s.com/Open-Source/CSharp/Development/StyleCop/Microsoft/VisualStudio/Shell/Flavor/Project.cs.htm
-        /// </summary>
-        class MyProjectTracker : ProjectDocumentsListener
-        {
-            private MySolutionTracker solutionTracker;
-
-            public MyProjectTracker(MySolutionTracker solutionTracker)
-                : base(solutionTracker.ServiceProvider)
-            {
-                this.solutionTracker = solutionTracker;
-            }
-
-            public override int OnQueryAddFiles(IVsProject pProject, int cFiles, string[] rgpszMkDocuments, VSQUERYADDFILEFLAGS[] rgFlags, VSQUERYADDFILERESULTS[] pSummaryResult, VSQUERYADDFILERESULTS[] rgResults)
-            {
-                try
-                {
-                    MyLog.DebugEnter(this, "OnQueryAddFiles");
-                    //AddFilesIfChanged(rgpProjects, rgFirstIndices, rgpszMkDocuments);
-                    return VSConstants.S_OK;
-                }
-                finally
-                {
-                    MyLog.DebugLeave(this, "OnQueryAddFiles");
-                }
-            }
-
-            public override int OnAfterAddFilesEx(int cProjects, int cFiles, IVsProject[] rgpProjects, int[] rgFirstIndices, string[] rgpszMkDocuments, VSADDFILEFLAGS[] rgFlags)
-            {
-                try
-                {
-                    MyLog.DebugEnter(this, "OnAfterAddFilesEx");
-                    return VSConstants.S_OK;
-                }
-                finally
-                {
-                    MyLog.DebugLeave(this, "OnAfterAddFilesEx");
-                }
-            }
-
-            public override int OnQueryRenameFiles(IVsProject pProject, int cFiles, string[] rgszMkOldNames, string[] rgszMkNewNames, VSQUERYRENAMEFILEFLAGS[] rgFlags, VSQUERYRENAMEFILERESULTS[] pSummaryResult, VSQUERYRENAMEFILERESULTS[] rgResults)
-            {
-                try
-                {
-                    MyLog.DebugEnter(this, "OnQueryRenameFiles");
-
-                    string oldname, newname;
-                    for (int i = 0; i < cFiles; i++)
-                    {
-                        oldname = rgszMkOldNames[i];
-                        newname = rgszMkNewNames[i];
-                        // TODO:(pv) Rename in filesChanged
-                    }
-                    return VSConstants.S_OK;
-                }
-                finally
-                {
-                    MyLog.DebugLeave(this, "OnQueryRenameFiles");
-                }
-            }
-
-            public override int OnAfterRenameFiles(int cProjects, int cFiles, IVsProject[] rgpProjects, int[] rgFirstIndices, string[] rgszMkOldNames, string[] rgszMkNewNames, VSRENAMEFILEFLAGS[] rgFlags)
-            {
-                try
-                {
-                    MyLog.DebugEnter(this, "OnAfterRenameFiles");
-                    return VSConstants.S_OK;
-                }
-                finally
-                {
-                    MyLog.DebugLeave(this, "OnAfterRenameFiles");
-                }
-            }
-
-            public override int OnQueryRemoveFiles(IVsProject pProject, int cFiles, string[] rgpszMkDocuments, VSQUERYREMOVEFILEFLAGS[] rgFlags, VSQUERYREMOVEFILERESULTS[] pSummaryResult, VSQUERYREMOVEFILERESULTS[] rgResults)
-            {
-                try
-                {
-                    MyLog.DebugEnter(this, "OnQueryRemoveFiles");
-                    string name;
-                    for (int i = 0; i < cFiles; i++)
-                    {
-                        name = rgpszMkDocuments[i];
-                        // TODO:(pv) Remove from filesChanged
-                    }
-                    return VSConstants.S_OK;
-                }
-                finally
-                {
-                    MyLog.DebugLeave(this, "OnQueryRemoveFiles");
-                }
-            }
-
-            public override int OnAfterRemoveFiles(int cProjects, int cFiles, IVsProject[] rgpProjects, int[] rgFirstIndices, string[] rgpszMkDocuments, VSREMOVEFILEFLAGS[] rgFlags)
-            {
-                try
-                {
-                    MyLog.DebugEnter(this, "OnAfterRemoveFiles");
-                    return VSConstants.S_OK;
-                }
-                finally
-                {
-                    MyLog.DebugLeave(this, "OnAfterRemoveFiles");
-                }
-            }
-
-            public override int OnQueryAddDirectories(IVsProject pProject, int cDirectories, string[] rgpszMkDocuments, VSQUERYADDDIRECTORYFLAGS[] rgFlags, VSQUERYADDDIRECTORYRESULTS[] pSummaryResult, VSQUERYADDDIRECTORYRESULTS[] rgResults)
-            {
-                try
-                {
-                    MyLog.DebugEnter(this, "OnQueryAddDirectories");
-                    return VSConstants.S_OK;
-                }
-                finally
-                {
-                    MyLog.DebugLeave(this, "OnQueryAddDirectories");
-                }
-            }
-
-            public override int OnAfterAddDirectoriesEx(int cProjects, int cDirectories, IVsProject[] rgpProjects, int[] rgFirstIndices, string[] rgpszMkDocuments, VSADDDIRECTORYFLAGS[] rgFlags)
-            {
-                try
-                {
-                    MyLog.DebugEnter(this, "OnAfterAddDirectoriesEx");
-                    return VSConstants.S_OK;
-                }
-                finally
-                {
-                    MyLog.DebugLeave(this, "OnAfterAddDirectoriesEx");
-                }
-            }
-
-            public override int OnQueryRenameDirectories(IVsProject pProject, int cDirs, string[] rgszMkOldNames, string[] rgszMkNewNames, VSQUERYRENAMEDIRECTORYFLAGS[] rgFlags, VSQUERYRENAMEDIRECTORYRESULTS[] pSummaryResult, VSQUERYRENAMEDIRECTORYRESULTS[] rgResults)
-            {
-                try
-                {
-                    MyLog.DebugEnter(this, "OnQueryRenameDirectories");
-                    return VSConstants.S_OK;
-                }
-                finally
-                {
-                    MyLog.DebugLeave(this, "OnQueryRenameDirectories");
-                }
-            }
-
-            public override int OnAfterRemoveDirectories(int cProjects, int cDirectories, IVsProject[] rgpProjects, int[] rgFirstIndices, string[] rgpszMkDocuments, VSREMOVEDIRECTORYFLAGS[] rgFlags)
-            {
-                try
-                {
-                    MyLog.DebugEnter(this, "OnAfterRemoveDirectories");
-                    return VSConstants.S_OK;
-                }
-                finally
-                {
-                    MyLog.DebugLeave(this, "OnAfterRemoveDirectories");
-                }
-            }
-
-            public override int OnQueryRemoveDirectories(IVsProject pProject, int cDirectories, string[] rgpszMkDocuments, VSQUERYREMOVEDIRECTORYFLAGS[] rgFlags, VSQUERYREMOVEDIRECTORYRESULTS[] pSummaryResult, VSQUERYREMOVEDIRECTORYRESULTS[] rgResults)
-            {
-                try
-                {
-                    MyLog.DebugEnter(this, "OnQueryRemoveDirectories");
-                    return VSConstants.S_OK;
-                }
-                finally
-                {
-                    MyLog.DebugLeave(this, "OnQueryRemoveDirectories");
-                }
-            }
-
-            public override int OnAfterRenameDirectories(int cProjects, int cDirs, IVsProject[] rgpProjects, int[] rgFirstIndices, string[] rgszMkOldNames, string[] rgszMkNewNames, VSRENAMEDIRECTORYFLAGS[] rgFlags)
-            {
-                try
-                {
-                    MyLog.DebugEnter(this, "OnAfterRenameDirectories");
-                    return VSConstants.S_OK;
-                }
-                finally
-                {
-                    MyLog.DebugLeave(this, "OnAfterRenameDirectories");
-                }
-            }
-
-            public override int OnAfterSccStatusChanged(int cProjects, int cFiles, IVsProject[] rgpProjects, int[] rgFirstIndices, string[] rgpszMkDocuments, uint[] rgdwSccStatus)
-            {
-                try
-                {
-                    MyLog.DebugEnter(this, "OnAfterSccStatusChanged");
-                    return VSConstants.S_OK;
-                }
-                finally
-                {
-                    MyLog.DebugLeave(this, "OnAfterSccStatusChanged");
-                }
-            }
-
-            /*
-            private void GenerateEvents(
-                IVsProject[] projects,
-                int[] firstFiles,
-                string[] mkDocuments,
-                EventHandler<ProjectDocumentsChangeEventArgs> eventToGenerate,
-                ProjectDocumentsChangeEventArgs e)
-            {
-                if (eventToGenerate == null)
-                    return; // no event = nothing to do
-
-                if (projects == null || firstFiles == null || mkDocuments == null)
-                    throw new ArgumentNullException();
-                if (projects.Length != firstFiles.Length)
-                    throw new ArgumentException();
-
-                // First find out which range of the array (if any) include the files that belong to this project
-                int first = -1;
-                int last = mkDocuments.Length - 1; // default to the last document
-                for (int i = 0; i < projects.Length; ++i)
-                {
-                    if (first > -1)
-                    {
-                        // We get here if there is 1 or more project(s) after ours in the list
-                        last = firstFiles[i] - 1;
-                        break;
-                    }
-                    if (Object.ReferenceEquals(projects[i], this))
-                        first = firstFiles[i];
-                }
-                if (last >= mkDocuments.Length)
-                    throw new ArgumentException();
-                // See if we have any documents
-                if (first < 0)
-                    return; // Nothing that belongs to this project
-
-                // For each file, generate the event
-                for (int i = first; i <= last; ++i)
-                {
-                    try
-                    {
-                        e.MkDocument = mkDocuments[i];
-                        eventToGenerate(this, e);
-                    }
-                    catch (Exception error)
-                    {
-                        Debug.Fail(error.Message);
-                    }
-                }
-            }
-            */
-        }
-
-        #endregion MyProjectTracker
-
-        #region MyFileTracker
-
-        public class MyFileTracker : FileChangeListener
-        {
-            private MySolutionTracker solutionTracker;
-
-            public MyFileTracker(MySolutionTracker solutionTracker)
-                : base(solutionTracker.ServiceProvider)
-            {
-                this.solutionTracker = solutionTracker;
-            }
-
-            public override int FilesChanged(uint cChanges, string[] rgpszFile, uint[] rggrfChange)
-            {
-                try
-                {
-                    MyLog.DebugEnter(this, "FilesChanged(" + cChanges + ", " + rgpszFile + ", " + rggrfChange + ")");
-
-                    foreach(string filepath in rgpszFile)
-                    {
-                        solutionTracker.AddFilePathIfChanged(filepath);
-                    }
-
-                    return VSConstants.S_OK;
-                }
-                finally
-                {
-                    MyLog.DebugLeave(this, "FilesChanged(" + cChanges + ", " + rgpszFile + ", " + rggrfChange + ")");
-                }
-            }
-        }
-
-        #endregion MyFileTracker
-
-        public MySolutionTracker(IServiceProvider serviceProvider)
+        public MySolutionTracker(IServiceProvider serviceProvider, RunWorkerCompletedEventHandler runWorkerCompleted)
             : base(serviceProvider)
         {
-            this.projectTracker = new MyProjectTracker(this);
-            this.fileTracker = new MyFileTracker(this);
-
+            // The BackgroundWorker is created and managed by this class because
+            // it needs to re-fire every time a new Solution is opened.
+            // TODO:(pv) It would be nice to move BackgroundInitialSolutionCrawl and Changes outside of this class.
+            //      This could be done by firing public events for SolutionOpen and SolutionClose.
             BackgroundInitialSolutionCrawl = new BackgroundWorker();
             BackgroundInitialSolutionCrawl.WorkerReportsProgress = true;
             BackgroundInitialSolutionCrawl.DoWork += backgroundInitialSolutionCrawl_DoWork;
-        }
+            BackgroundInitialSolutionCrawl.RunWorkerCompleted += BackgroundInitialSolutionCrawl_RunWorkerCompleted;
+            if (runWorkerCompleted != null)
+            {
+                BackgroundInitialSolutionCrawl.RunWorkerCompleted += runWorkerCompleted;
+            }
 
-        public override void Initialize()
-        {
-            try
-            {
-                MyLog.DebugEnter(this, "Initialize()");
-                // TODO:(pv) Should I do this at SolutionOpen?
-                base.Initialize();
-                projectTracker.Initialize();
-            }
-            finally
-            {
-                MyLog.DebugLeave(this, "Initialize()");
-            }
+            // Subscribes to Solution events
+            Initialize();
         }
 
         protected override void Dispose(bool disposing)
@@ -363,9 +68,7 @@ namespace ReviewBoardVsx.Package.Tracker
             try
             {
                 MyLog.DebugEnter(this, "Dispose(" + disposing + ")");
-                // TODO:(pv) Should I do this at SolutionClose?
-                fileTracker.Dispose();
-                projectTracker.Dispose();
+                DisposeProjectAndFileTrackers();
                 base.Dispose(disposing);
             }
             finally
@@ -374,19 +77,66 @@ namespace ReviewBoardVsx.Package.Tracker
             }
         }
 
+        protected void DisposeProjectAndFileTrackers()
+        {
+                if (fileTracker != null)
+                {
+                    fileTracker.Dispose();
+                    fileTracker = null;
+                }
+                if (projectTracker != null)
+                {
+                    projectTracker.Dispose();
+                    projectTracker = null;
+                }
+        }
+
+        /// <summary>
+        /// Clears the changes collection and crawls every item in the solution looking for current changes and subscribing to future changes.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         void backgroundInitialSolutionCrawl_DoWork(object sender, DoWorkEventArgs e)
         {
             try
             {
-                MyLog.DebugEnter(this, "EnumHierarchyItems");
-                EnumHierarchyItems((IVsHierarchy)Solution, VSConstants.VSITEMID_ROOT, 0, true, true);
+                MyLog.DebugEnter(this, "backgroundInitialSolutionCrawl_DoWork");
+
+                lock (changes)
+                {
+                    changes.Clear();
+                }
+
+                try
+                {
+                    MyLog.DebugEnter(this, "EnumHierarchyItems");
+                    EnumHierarchyItems((IVsHierarchy)Solution, VSConstants.VSITEMID_ROOT, 0, true, true);
+                }
+                finally
+                {
+                    MyLog.DebugLeave(this, "EnumHierarchyItems");
+                }
             }
             finally
             {
-                MyLog.DebugLeave(this, "EnumHierarchyItems");
+                MyLog.DebugLeave(this, "backgroundInitialSolutionCrawl_DoWork");
             }
+        }
 
-            IsInitialSolutionCrawlFinished = true;
+        /// <summary>
+        /// Clear the changes collection if the solution crawl encountered an error or was canceled.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        void BackgroundInitialSolutionCrawl_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        {
+            if (e.Error != null || e.Cancelled)
+            {
+                lock (changes)
+                {
+                    changes.Clear();
+                }
+            }
         }
 
         #region event handlers
@@ -397,15 +147,16 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 MyLog.DebugEnter(this, "OnAfterOpenSolution(" + pUnkReserved + ", " + fNewSolution + ")");
 
+                DisposeProjectAndFileTrackers();
+
+                // Subscribe to Project events
+                projectTracker = new MyProjectTracker(this);
+                projectTracker.Initialize();
+
+                // Each file encountered during the crawl will be separately tracked for future changes.
+                fileTracker = new MyFileTracker(this);
+
                 // TODO:(pv) What if another crawl is already running?
-                // TODO:(pv) Is this the best place for this?
-                lock (changes)
-                {
-                    changes.Clear();
-                }
-
-                IsInitialSolutionCrawlFinished = false;
-
                 BackgroundInitialSolutionCrawl.RunWorkerAsync();
 
                 return VSConstants.S_OK;
@@ -421,7 +172,7 @@ namespace ReviewBoardVsx.Package.Tracker
             try
             {
                 MyLog.DebugEnter(this, "OnQueryCloseSolution(" + pUnkReserved + ", " + cancel + ")");
-                return VSConstants.S_OK; // We are not interested in this one
+                return VSConstants.S_OK; // ignore
             }
             finally
             {
@@ -434,17 +185,7 @@ namespace ReviewBoardVsx.Package.Tracker
             try
             {
                 MyLog.DebugEnter(this, "OnBeforeCloseSolution(" + pUnkReserved + ")");
-
-                BackgroundInitialSolutionCrawl.CancelAsync();
-
-                IsInitialSolutionCrawlFinished = false;
-
-                lock (changes)
-                {
-                    changes.Clear();
-                }
-
-                return VSConstants.S_OK;
+                return VSConstants.S_OK; // ignore
             }
             finally
             {
@@ -457,7 +198,15 @@ namespace ReviewBoardVsx.Package.Tracker
             try
             {
                 MyLog.DebugEnter(this, "OnAfterCloseSolution(" + reserved + ")");
-                return VSConstants.S_OK; // We are not interested in this one
+
+                DisposeProjectAndFileTrackers();
+
+                if (BackgroundInitialSolutionCrawl.IsBusy)
+                {
+                    BackgroundInitialSolutionCrawl.CancelAsync();
+                }
+
+                return VSConstants.S_OK;
             }
             finally
             {
@@ -524,7 +273,7 @@ namespace ReviewBoardVsx.Package.Tracker
             try
             {
                 MyLog.DebugEnter(this, "OnQueryCloseProject(" + hierarchy + ", " + removing + ", " + cancel + ")");
-                return VSConstants.S_OK; // We are not interested in this one
+                return VSConstants.S_OK; // ignore
             }
             finally
             {
@@ -963,7 +712,10 @@ namespace ReviewBoardVsx.Package.Tracker
                     case PostReview.DiffType.Changed:
                     case PostReview.DiffType.Modified:
                         PostReview.SubmitItem change = new PostReview.SubmitItem(filePath, project, diffType, diff);
-                        changes.Add(change);
+                        lock (changes)
+                        {
+                            changes.Add(change);
+                        }
                         break;
                     case PostReview.DiffType.External:
                         // TODO:(pv) Even add External items?

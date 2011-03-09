@@ -152,6 +152,8 @@
     </Compile>
     <Compile Include="Settings.cs" />
     <Compile Include="Tracker\FileChangeListener.cs" />
+    <Compile Include="Tracker\MyFileTracker.cs" />
+    <Compile Include="Tracker\MyProjectTracker.cs" />
     <Compile Include="Tracker\MySolutionTracker.cs" />
     <Compile Include="Tracker\ProjectDocumentsListener.cs" />
     <Compile Include="Tracker\SolutionListener.cs" />
