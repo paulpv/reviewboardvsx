@@ -57,6 +57,14 @@ namespace ReviewBoardVsx.Package.Tracker
 
         #endregion
 
+        public virtual void Initialize()
+        {
+            if (Solution != null && eventsCookie == (uint)ShellConstants.VSCOOKIE_NIL)
+            {
+                ErrorHandler.ThrowOnFailure(Solution.AdviseSolutionEvents(this, out eventsCookie));
+            }
+        }
+
         public void Dispose()
         {
             Dispose(true);
@@ -76,14 +84,6 @@ namespace ReviewBoardVsx.Package.Tracker
                     }
                     isDisposed = true;
                 }
-            }
-        }
-
-        public virtual void Initialize()
-        {
-            if (Solution != null && eventsCookie == (uint)ShellConstants.VSCOOKIE_NIL)
-            {
-                ErrorHandler.ThrowOnFailure(Solution.AdviseSolutionEvents(this, out eventsCookie));
             }
         }
     }

@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
@@ -18,40 +20,50 @@ namespace ReviewBoardVsx.Package.Tracker
     [CLSCompliant(false)]
     public abstract class ProjectDocumentsListener : IVsTrackProjectDocumentsEvents2, IDisposable
     {
-        public class ProjectItemAddRemoveEventArgs : EventArgs
+        public class ProjectItemsAddRemoveEventArgs : EventArgs
         {
             public IVsProject Project { get; private set; }
-            public String Path { get; private set; }
+            public ReadOnlyCollection<string> Items { get; private set; }
 
-            public ProjectItemAddRemoveEventArgs(IVsProject project, string path)
+            public ProjectItemsAddRemoveEventArgs(IVsProject project, IList<string> items)
             {
                 Project = project;
-                Path = path;
+                Items = new ReadOnlyCollection<string>(items);
             }
         }
 
-        public class ProjectItemRenameEventArgs : EventArgs
+        public class ProjectItemsRenameEventArgs : EventArgs
         {
-            public IVsProject Project { get; private set; }
-            public String PathOld { get; private set; }
-            public String PathNew { get; private set; }
+            public class RenamedItem
+            {
+                public string PathOld { get; private set; }
+                public string PathNew { get; private set; }
 
-            public ProjectItemRenameEventArgs(IVsProject project, string pathOld, string pathNew)
+                public RenamedItem(string pathOld, string pathNew)
+                {
+                    PathOld = pathOld;
+                    PathNew = pathNew;
+                }
+            }
+
+            public IVsProject Project { get; private set; }
+            public ReadOnlyCollection<RenamedItem> Items { get; private set; }
+
+            public ProjectItemsRenameEventArgs(IVsProject project, IList<RenamedItem> items)
             {
                 Project = project;
-                PathOld = pathOld;
-                PathNew = pathNew;
+                Items = new ReadOnlyCollection<RenamedItem>(items);
             }
         }
 
         //public delegate void EventHandler<ProjectDocumentsChangeEventArgs>(object sender, ProjectDocumentsChangeEventArgs e);
 
-        public event EventHandler<ProjectItemAddRemoveEventArgs> FileAdded;
-        public event EventHandler<ProjectItemRenameEventArgs> FileRenamed;
-        public event EventHandler<ProjectItemAddRemoveEventArgs> FileRemoved;
-        public event EventHandler<ProjectItemAddRemoveEventArgs> DirectoryAdded;
-        public event EventHandler<ProjectItemRenameEventArgs> DirectoryRenamed;
-        public event EventHandler<ProjectItemAddRemoveEventArgs> DirectoryRemoved;
+        public event EventHandler<ProjectItemsAddRemoveEventArgs> FileAdded;
+        public event EventHandler<ProjectItemsRenameEventArgs> FileRenamed;
+        public event EventHandler<ProjectItemsAddRemoveEventArgs> FileRemoved;
+        public event EventHandler<ProjectItemsAddRemoveEventArgs> DirectoryAdded;
+        public event EventHandler<ProjectItemsRenameEventArgs> DirectoryRenamed;
+        public event EventHandler<ProjectItemsAddRemoveEventArgs> DirectoryRemoved;
 
         public IServiceProvider ServiceProvider { get; private set; }
 
@@ -150,6 +162,7 @@ namespace ReviewBoardVsx.Package.Tracker
             try
             {
                 MyLog.DebugEnter(this, "OnAfterRenameFiles");
+                // TODO:(pv) This may not handle solution/project file renames very well...
                 GenerateRenameEvents(rgpProjects, rgFirstIndices, rgszMkOldNames, rgszMkNewNames, FileRenamed);
                 return VSConstants.S_OK;
             }
@@ -285,13 +298,13 @@ namespace ReviewBoardVsx.Package.Tracker
         private void GenerateAddRemoveEvents(
             IVsProject[] projects,
             int[] firstPaths,
-            string[] paths,
-            EventHandler<ProjectItemAddRemoveEventArgs> eventToGenerate)
+            string[] itemPaths,
+            EventHandler<ProjectItemsAddRemoveEventArgs> eventToGenerate)
         {
             if (eventToGenerate == null)
                 return; // no event = nothing to do
 
-            if (projects == null || firstPaths == null || paths == null)
+            if (projects == null || firstPaths == null || itemPaths == null)
             {
                 throw new ArgumentNullException();
             }
@@ -302,28 +315,33 @@ namespace ReviewBoardVsx.Package.Tracker
             }
 
             int cProjects = projects.Length;
-            int cPaths = paths.Length;
+            int cPaths = itemPaths.Length;
 
             IVsProject project;
-            string origin;
-            string pathNew;
+            List<string> items = new List<string>();
+            string itemPath;
 
             int iPath = 0;
             for (int iProject = 0; (iProject < cProjects) && (iPath < cPaths); iProject++)
             {
                 int iLastPathThisProject = (iProject < cProjects - 1) ? firstPaths[iProject + 1] : cPaths;
 
+                items.Clear();
+
                 for (; iPath < iLastPathThisProject; iPath++)
                 {
-                    origin = null;
-                    pathNew = paths[iPath];// SvnTools.GetNormalizedFullPath(rgszMkNewNames[iFile]);
+                    itemPath = itemPaths[iPath];
+                    items.Add(itemPath);
+                }
 
+                if (items.Count > 0)
+                {
                     // if project == null then Solution, else Project
                     project = projects[iProject];
 
                     try
                     {
-                        eventToGenerate(this, new ProjectItemAddRemoveEventArgs(project, pathNew));
+                        eventToGenerate(this, new ProjectItemsAddRemoveEventArgs(project, items));
                     }
                     catch (Exception error)
                     {
@@ -336,14 +354,14 @@ namespace ReviewBoardVsx.Package.Tracker
         private void GenerateRenameEvents(
             IVsProject[] projects,
             int[] firstPaths,
-            string[] pathsOld,
-            string[] pathsNew,
-            EventHandler<ProjectItemRenameEventArgs> eventToGenerate)
+            string[] itemPathsOld,
+            string[] itemPathsNew,
+            EventHandler<ProjectItemsRenameEventArgs> eventToGenerate)
         {
             if (eventToGenerate == null)
                 return; // no event = nothing to do
 
-            if (projects == null || firstPaths == null || pathsOld == null || pathsNew == null)
+            if (projects == null || firstPaths == null || itemPathsOld == null || itemPathsNew == null)
             {
                 throw new ArgumentNullException();
             }
@@ -353,40 +371,51 @@ namespace ReviewBoardVsx.Package.Tracker
                 throw new ArgumentException();
             }
 
-            if (pathsOld.Length != pathsNew.Length)
+            if (itemPathsOld.Length != itemPathsNew.Length)
             {
                 throw new ArgumentException();
             }
 
             int cProjects = projects.Length;
-            int cPaths = pathsOld.Length;
+            int cPaths = itemPathsOld.Length;
 
             // TODO: C++ projects do not send directory renames; but do send OnAfterRenameFile() events
             //       for all files (one at a time). We should detect that case here and fix up this dirt!
 
             IVsProject project;
-            string pathOld;
-            string pathNew;
+            List<ProjectItemsRenameEventArgs.RenamedItem> items = new List<ProjectItemsRenameEventArgs.RenamedItem>();
+            string itemPathOld;
+            string itemPathNew;
+            ProjectItemsRenameEventArgs.RenamedItem item;
 
             int iPath = 0;
             for (int iProject = 0; (iProject < cProjects) && (iPath < cPaths); iProject++)
             {
                 int iLastPathThisProject = (iProject < cProjects - 1) ? firstPaths[iProject + 1] : cPaths;
 
+                items.Clear();
+
                 for (; iPath < iLastPathThisProject; iPath++)
                 {
-                    pathOld = pathsOld[iPath];// SvnTools.GetNormalizedFullPath(pathsOld[iFile]);
-                    pathNew = pathsNew[iPath];// SvnTools.GetNormalizedFullPath(pathsNew[iFile]);
+                    itemPathOld = itemPathsOld[iPath];
+                    itemPathNew = itemPathsNew[iPath];
 
-                    if (pathOld == pathNew)
+                    // TODO:(pv) Can we ignore if the path was renamed to just a different case?
+                    if (itemPathOld == itemPathNew)
                         continue;
 
+                    item = new ProjectItemsRenameEventArgs.RenamedItem(itemPathOld, itemPathNew);
+                    items.Add(item);
+                }
+
+                if (items.Count > 0)
+                {
                     // if project == null then Solution, else Project
                     project = projects[iProject];
 
                     try
                     {
-                        eventToGenerate(this, new ProjectItemRenameEventArgs(project, pathOld, pathNew));
+                        eventToGenerate(this, new ProjectItemsRenameEventArgs(project, items));
                     }
                     catch (Exception error)
                     {

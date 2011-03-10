@@ -22,17 +22,31 @@ namespace ReviewBoardVsx.Package.Tracker
             this.FileRemoved += MyProjectTracker_FileRemoved;
         }
 
-        void MyProjectTracker_FileAdded(object sender, ProjectDocumentsListener.ProjectItemAddRemoveEventArgs e)
+        void MyProjectTracker_FileAdded(object sender, ProjectDocumentsListener.ProjectItemsAddRemoveEventArgs e)
         {
-            //solutionTracker.AddFilePathIfChanged(e.Path);
+            string projectName = solutionTracker.GetProjectName(e.Project);
+            foreach (string item in e.Items)
+            {
+                solutionTracker.AddFilePathIfChanged(item, projectName);
+            }
         }
 
-        void MyProjectTracker_FileRenamed(object sender, ProjectDocumentsListener.ProjectItemRenameEventArgs e)
+        void MyProjectTracker_FileRenamed(object sender, ProjectDocumentsListener.ProjectItemsRenameEventArgs e)
         {
+            string projectName = solutionTracker.GetProjectName(e.Project);
+            foreach (ProjectItemsRenameEventArgs.RenamedItem item in e.Items)
+            {
+                //solutionTracker.RenameFilePath(item, projectName);
+            }
         }
 
-        void MyProjectTracker_FileRemoved(object sender, ProjectDocumentsListener.ProjectItemAddRemoveEventArgs e)
+        void MyProjectTracker_FileRemoved(object sender, ProjectDocumentsListener.ProjectItemsAddRemoveEventArgs e)
         {
+            string projectName = solutionTracker.GetProjectName(e.Project);
+            foreach (string item in e.Items)
+            {
+                //solutionTracker.RemoveFilePath(item, projectName);
+            }
         }
     }
 }
