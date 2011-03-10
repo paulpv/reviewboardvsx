@@ -36,7 +36,7 @@ namespace ReviewBoardVsx.Package.Tracker
         /// Map of solution/project file paths to solution/project names.
         /// This allows us to easily find the solution/project name given just the file path.
         /// </summary>
-        private readonly Dictionary<string, string> mapItemProjects = new Dictionary<string,string>();
+        private readonly Dictionary<string, string> mapItemProjectNames = new Dictionary<string, string>();
 
         public readonly BackgroundWorker BackgroundInitialSolutionCrawl;
 
@@ -432,6 +432,7 @@ namespace ReviewBoardVsx.Package.Tracker
 
         /// <summary>
         /// Code almost 100% taken from VS SDK Example: SolutionHierarchyTraversal
+        /// TODO:(pv) There seems to be an undesirable result when the Solution is set to "Show All Files".
         /// </summary>
         /// <param name="hierarchy"></param>
         /// <param name="itemid"></param>
@@ -538,7 +539,7 @@ namespace ReviewBoardVsx.Package.Tracker
 
                 int hr;
 
-                Object oRootName;
+                object oRootName;
                 hr = hierarchy.GetProperty(VSConstants.VSITEMID_ROOT, (int)__VSHPROPID.VSHPROPID_Name, out oRootName);
                 if (ErrorHandler.Failed(hr))
                 {
@@ -614,7 +615,21 @@ namespace ReviewBoardVsx.Package.Tracker
                     if (project != null)
                     {
                         string projectFile;
-                        project.GetMkDocument(VSConstants.VSITEMID_ROOT, out projectFile);
+                        hr = project.GetMkDocument(VSConstants.VSITEMID_ROOT, out projectFile);
+                        if (ErrorHandler.Failed(hr))
+                        {
+                            switch (hr)
+                            {
+                                case VSConstants.E_NOTIMPL:
+                                    // This apparently can happen if the item is a virtual "Solution Items" folder; nothing to do; return;
+                                    return;
+                                default:
+                                    MyPackage.OutputGeneral("ERROR: Could not get document name of project \"" + rootName + "\"");
+                                    ErrorHandler.ThrowOnFailure(hr);
+                                    break;
+                            }
+                        }
+
                         AddFilePathIfChanged(projectFile, rootName);
                     }
                     else
@@ -626,6 +641,7 @@ namespace ReviewBoardVsx.Package.Tracker
 
                             string solutionDirectory, solutionFile, solutionUserOptions;
                             ErrorHandler.ThrowOnFailure(solution.GetSolutionInfo(out solutionDirectory, out solutionFile, out solutionUserOptions));
+
                             AddFilePathIfChanged(solutionFile, rootName);
                         }
                         else
@@ -669,16 +685,71 @@ namespace ReviewBoardVsx.Package.Tracker
             }
         }
 
-        public void AddFilePathIfChanged(string filePath)
+/*
+        private string GetSolutionName()
         {
-            string project;
-            if (!mapItemProjects.TryGetValue(filePath.ToLower(), out project))
+            IVsHierarchy hierarchy = Solution as IVsHierarchy;
+            object solutionName;
+            ErrorHandler.ThrowOnFailure(hierarchy.GetProperty(VSConstants.VSITEMID_ROOT, (int)__VSHPROPID.VSHPROPID_Name, out solutionName));
+            return solutionName as string;
+        }
+*/
+
+        /// <summary>
+        /// If project==null then gets the Solution name
+        /// </summary>
+        /// <param name="project"></param>
+        /// <returns></returns>
+        public string GetProjectName(IVsProject project)
+        {
+            if (project == null)
             {
-                project = Resources.RootUnknown;
+                return Resources.RootSolution; // GetSolutionName();
             }
-            AddFilePathIfChanged(filePath, project);
+
+            IVsSolution3 solution = Solution as IVsSolution3;
+            string projectName = null;
+            ErrorHandler.ThrowOnFailure(solution.GetUniqueUINameOfProject((IVsHierarchy)project, out projectName));
+            return projectName;
         }
 
+        private string FindItemProjectName(string itemPath, bool prelowered)
+        {
+            if (!prelowered)
+            {
+                itemPath = itemPath.ToLower();
+            }
+            string projectName;
+            if (mapItemProjectNames.TryGetValue(itemPath, out projectName))
+            {
+                return projectName;
+            }
+            return Resources.RootUnknown;
+        }
+
+        /// <summary>
+        /// This method is called when a file is saved outside of the context of a solution/project.
+        /// When this happens we need to look up the file's solution/project.
+        /// A file with a project==null means it is a solution file.
+        /// 
+        /// NOTE that this *could* possibly give a false/invalid result if mapItemProjectNames gets out of sync.
+        /// Hopefully the collective code prevents that from ever happening.
+        /// </summary>
+        /// <param name="filePath"></param>
+        public void AddFilePathIfChanged(string filePath)
+        {
+            // TODO:(pv) If this ever produces invalid/false results, search all solution projects for the filePath.
+            string projectName = FindItemProjectName(filePath, false);
+            AddFilePathIfChanged(filePath, projectName);
+        }
+
+        /// <summary>
+        /// This method is called directly from the solution crawler and any solution/project file add/rename/remove events.
+        /// It is also called via AddFilePathIfChanged(string filePath) when a file is saved outside of the context of a solution/project.
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="project"></param>
+        /// <returns></returns>
         public void AddFilePathIfChanged(string filePath, string project)
         {
             try
@@ -742,7 +813,7 @@ namespace ReviewBoardVsx.Package.Tracker
 
                 // Map the file path to a project so that future file changes can find out what project the file is in given just the file path.
                 // This will overwrite any existing value...which seems fine for now.
-                mapItemProjects[filePath] = project;
+                mapItemProjectNames[filePath] = project;
             }
             finally
             {

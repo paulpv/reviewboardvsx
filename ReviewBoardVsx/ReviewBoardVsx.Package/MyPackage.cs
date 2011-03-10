@@ -86,13 +86,6 @@ namespace ReviewBoardVsx.Package
             return GetService(type) as T;
         }
 
-        /*
-        public new Object GetService(Type type)
-        {
-            return base.GetService(type);
-        }
-        */
-
         public IVsSolution GetSolution()
         {
             return GetService<SVsSolution>() as IVsSolution;
