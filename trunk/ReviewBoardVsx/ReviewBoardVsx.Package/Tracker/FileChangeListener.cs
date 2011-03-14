@@ -14,8 +14,11 @@ namespace ReviewBoardVsx.Package.Tracker
     /// http://nativeclient-sdk.googlecode.com/svn-history/r502/trunk/src/third_party/Microsoft.VisualStudio.Project/FileChangeManager.cs
     /// http://www.koders.com/csharp/fid127BC2AFCC2D56826135983EBCA899BD8E2601AA.aspx
     /// </summary>
-    public abstract class FileChangeListener : IVsFileChangeEvents, IDisposable
+    public class FileChangeListener : IVsFileChangeEvents, IDisposable
     {
+        public delegate void FilesChangedHandler(uint cChanges, string[] rgpszFile, uint[] rggrfChange);
+        public event FilesChangedHandler OnFilesChanged;
+
         private IVsFileChangeEx fileChangeEx;
         private Dictionary<string, uint> eventCookies = new Dictionary<string, uint>();
 
@@ -34,7 +37,14 @@ namespace ReviewBoardVsx.Package.Tracker
 
         #region IVsFileChangeEvents Members
 
-        public abstract int FilesChanged(uint cChanges, string[] rgpszFile, uint[] rggrfChange);
+        public int FilesChanged(uint cChanges, string[] rgpszFile, uint[] rggrfChange)
+        {
+            if (OnFilesChanged != null)
+            {
+                OnFilesChanged(cChanges, rgpszFile, rggrfChange);
+            }
+            return VSConstants.S_OK;
+        }
 
         /// <summary>
         /// Does nothing; This *File*ChangeListener class is not interested in *Directory* changes.

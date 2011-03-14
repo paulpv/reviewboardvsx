@@ -77,6 +77,7 @@
             this.listPaths.ShowSelectAllCheckBox = true;
             this.listPaths.Size = new System.Drawing.Size(578, 200);
             this.listPaths.TabIndex = 0;
+            this.listPaths.ItemChecked += new System.Windows.Forms.ItemCheckedEventHandler(this.listPaths_ItemChecked);
             // 
             // labelReviewId
             // 

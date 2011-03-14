@@ -18,7 +18,7 @@ namespace ReviewBoardVsx.Package.Tracker
     /// http://www.java2s.com/Open-Source/CSharp/Development/StyleCop/Microsoft/VisualStudio/Shell/Flavor/ProjectDocumentsChangeEventsArgs.cs.htm
     /// </summary>
     [CLSCompliant(false)]
-    public abstract class ProjectDocumentsListener : IVsTrackProjectDocumentsEvents2, IDisposable
+    public class ProjectDocumentsListener : IVsTrackProjectDocumentsEvents2, IDisposable
     {
         public class ProjectItemsAddRemoveEventArgs : EventArgs
         {
@@ -56,8 +56,6 @@ namespace ReviewBoardVsx.Package.Tracker
             }
         }
 
-        //public delegate void EventHandler<ProjectDocumentsChangeEventArgs>(object sender, ProjectDocumentsChangeEventArgs e);
-
         public event EventHandler<ProjectItemsAddRemoveEventArgs> FileAdded;
         public event EventHandler<ProjectItemsRenameEventArgs> FileRenamed;
         public event EventHandler<ProjectItemsAddRemoveEventArgs> FileRemoved;
@@ -73,7 +71,7 @@ namespace ReviewBoardVsx.Package.Tracker
         private bool isDisposed;
         private static volatile object Mutex = new object();
 
-        protected ProjectDocumentsListener(IServiceProvider serviceProvider)
+        public ProjectDocumentsListener(IServiceProvider serviceProvider)
         {
             ServiceProvider = serviceProvider;
 

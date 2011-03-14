@@ -25,9 +25,9 @@ namespace ReviewBoardVsx.UI
     {
         public PostReview.ReviewInfo Review { get; protected set; }
 
-        private PostReview.SubmitItemReadOnlyCollection solutionChanges;
+        private MySolutionTracker.SubmitItemMap.ValueCollection solutionChanges;
 
-        public FormSubmit(PostReview.SubmitItemReadOnlyCollection solutionChanges)
+        public FormSubmit(MySolutionTracker.SubmitItemMap.ValueCollection solutionChanges)
         {
             InitializeComponent();
 
@@ -37,6 +37,59 @@ namespace ReviewBoardVsx.UI
             }
 
             this.solutionChanges = solutionChanges;
+        }
+
+        class ListViewItemComparer : IComparer
+        {
+            private int column;
+            private SortOrder order;
+
+            public ListViewItemComparer(int column)
+                : this(column, SortOrder.Ascending)
+            {
+            }
+
+            public ListViewItemComparer(int column, SortOrder order)
+            {
+                this.column = column;
+                this.order = order;
+            }
+
+            public int Compare(object a, object b) 
+            {
+                int returnVal= -1;
+
+                string textA = ((ListViewItem)a).SubItems[column].Text;
+                string textB = ((ListViewItem)b).SubItems[column].Text;
+
+                switch (column)
+                {
+                    case 0: // Path
+                        returnVal = String.Compare(textA, textB);
+                        break;
+                    case 1: // Project
+                        // TODO:(pv) Sort by Solution, then Solution Items, then Project(s)...
+                        returnVal = String.Compare(textA, textB);
+                        break;
+                    case 2: // Change
+                        PostReview.ChangeType changeA = (PostReview.ChangeType)Enum.Parse(typeof(PostReview.ChangeType), textA);
+                        PostReview.ChangeType changeB = (PostReview.ChangeType)Enum.Parse(typeof(PostReview.ChangeType), textB);
+                        returnVal = changeA.CompareTo(changeB);
+                        break;
+                    case 3: // Full Path
+                        returnVal = String.Compare(textA, textB);
+                        break;
+                }
+
+                // Determine whether the sort order is descending.
+                if (order == SortOrder.Descending)
+                {
+                    // Invert the value returned by String.Compare.
+                    returnVal *= -1;
+                }
+
+                return returnVal;
+            }
         }
 
         private void FormSubmit_Load(object sender, EventArgs e)
@@ -56,14 +109,18 @@ namespace ReviewBoardVsx.UI
             // Enabled by listPaths_ItemChecked validation
             buttonOk.Enabled = false;
 
+            /*
+            listPaths.Groups.Clear();
+            foreach (string changeType in Enum.GetNames(typeof(PostReview.ChangeType)))
+            {
+                listPaths.Groups.Add(new ListViewGroup(changeType, changeType));
+            }
+            listPaths.ListViewItemSorter = new ListViewItemComparer(listPaths.Columns["Change"].Index);
+            */
+
             InitializeReviewIds(false);
 
             InitializeSolutionChanges();
-        }
-
-        private void buttonClearReviewIds_Click(object sender, EventArgs e)
-        {
-            InitializeReviewIds(true);
         }
 
         private void FormSubmit_FormClosing(object sender, FormClosingEventArgs e)
@@ -90,6 +147,16 @@ namespace ReviewBoardVsx.UI
             Properties.Settings.Default.Location = this.DesktopBounds.Location;
             Properties.Settings.Default.Size = this.DesktopBounds.Size;
             Properties.Settings.Default.Save();
+        }
+
+        private void buttonClearReviewIds_Click(object sender, EventArgs e)
+        {
+            InitializeReviewIds(true);
+        }
+
+        private void listPaths_ItemChecked(object sender, ItemCheckedEventArgs e)
+        {
+            buttonOk_UpdateEnable(sender, e);
         }
 
         private void buttonOk_Click(object sender, EventArgs e)
@@ -149,18 +216,35 @@ namespace ReviewBoardVsx.UI
 
             string pathFull;
             string pathShort;
+            string changeType;
             ListViewItem item;
+            ListViewItem.ListViewSubItem subitem;
+
+            IComparer sorter = listPaths.ListViewItemSorter;
+            listPaths.ListViewItemSorter = null;
 
             listPaths.BeginUpdate();
+
             listPaths.Items.Clear();
             foreach (PostReview.SubmitItem solutionChange in solutionChanges)
             {
                 pathFull = solutionChange.FullPath;
                 pathShort = Regex.Replace(pathFull, commonRoot, "", RegexOptions.IgnoreCase);
+                changeType = solutionChange.ChangeType.ToString();
+
                 item = listPaths.Items.Add(pathShort);
-                item.SubItems.Add(solutionChange.Project).Name = "Project";
-                item.SubItems.Add(solutionChange.DiffType.ToString()).Name = "Change";
-                item.SubItems.Add(pathFull).Name = "FullPath";
+
+                // TODO:(pv) Pull ReviewableAttribute from each changeType value and sort reviewable above non-reviewable
+                //item.Group = listPaths.Groups[changeType];
+
+                subitem = item.SubItems.Add(solutionChange.Project);
+                subitem.Name = "Project";
+
+                subitem = item.SubItems.Add(changeType);
+                subitem.Name = "Change";
+
+                subitem = item.SubItems.Add(pathFull);
+                subitem.Name = "FullPath";
             }
 
             ColumnHeaderAutoResizeStyle resizeStyle = (solutionChanges.Count == 0) ? ColumnHeaderAutoResizeStyle.HeaderSize : ColumnHeaderAutoResizeStyle.ColumnContent;
@@ -168,7 +252,10 @@ namespace ReviewBoardVsx.UI
             {
                 columnHeader.AutoResize(resizeStyle);
             }
-            // TODO:(pv) Sort Project by Solution, Solution Items, Project(s)...
+
+            listPaths.ListViewItemSorter = sorter;
+            listPaths.Sort();
+
             listPaths.EndUpdate();
         }
 

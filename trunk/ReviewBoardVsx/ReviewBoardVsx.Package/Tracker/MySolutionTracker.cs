@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell.Interop;
@@ -22,15 +23,20 @@ namespace ReviewBoardVsx.Package.Tracker
     /// </summary>
     public class MySolutionTracker : SolutionListener
     {
+        // Maps the file path to the post-review submit item  info
+        public class SubmitItemMap : Dictionary<string, PostReview.SubmitItem>
+        {
+        }
+
         /// <summary>
         /// Private mutable collection of detected solution/project changes.
         /// </summary>
-        private readonly PostReview.SubmitItemCollection changes = new PostReview.SubmitItemCollection();
+        private readonly SubmitItemMap changes = new SubmitItemMap();
 
         /// <summary>
         /// Public read-only collection of detected solution/project changes
         /// </summary>
-        public PostReview.SubmitItemReadOnlyCollection Changes { get { return changes.AsReadOnly(); } }
+        public SubmitItemMap.ValueCollection Changes { get { return changes.Values; } }
 
         /// <summary>
         /// Map of solution/project file paths to solution/project names.
@@ -40,8 +46,8 @@ namespace ReviewBoardVsx.Package.Tracker
 
         public readonly BackgroundWorker BackgroundInitialSolutionCrawl;
 
-        private MyProjectTracker projectTracker;
-        private MyFileTracker fileTracker;
+        private ProjectDocumentsListener projectTracker;
+        private FileChangeListener fileTracker;
 
         public MySolutionTracker(IServiceProvider serviceProvider, RunWorkerCompletedEventHandler runWorkerCompleted)
             : base(serviceProvider)
@@ -139,7 +145,7 @@ namespace ReviewBoardVsx.Package.Tracker
             }
         }
 
-        #region event handlers
+        #region Solution event handlers
 
         public override int OnAfterOpenSolution(object pUnkReserved, int fNewSolution)
         {
@@ -150,11 +156,15 @@ namespace ReviewBoardVsx.Package.Tracker
                 DisposeProjectAndFileTrackers();
 
                 // Subscribe to Project events
-                projectTracker = new MyProjectTracker(this);
+                projectTracker = new ProjectDocumentsListener(this.ServiceProvider);
+                projectTracker.FileAdded += projectTracker_FileAdded;
+                projectTracker.FileRenamed += projectTracker_FileRenamed;
+                projectTracker.FileRemoved += projectTracker_FileRemoved;
                 projectTracker.Initialize();
 
                 // Each file encountered during the crawl will be separately tracked for future changes.
-                fileTracker = new MyFileTracker(this);
+                fileTracker = new FileChangeListener(this.ServiceProvider);
+                fileTracker.OnFilesChanged += fileTracker_OnFilesChanged;
 
                 // TODO:(pv) What if another crawl is already running?
                 BackgroundInitialSolutionCrawl.RunWorkerAsync();
@@ -426,7 +436,60 @@ namespace ReviewBoardVsx.Package.Tracker
             }
         }
 
-        #endregion
+        #endregion Solution event handlers
+
+        #region Project event handlers
+
+        void projectTracker_FileAdded(object sender, ProjectDocumentsListener.ProjectItemsAddRemoveEventArgs e)
+        {
+            string projectName = GetProjectName(e.Project);
+            foreach (string item in e.Items)
+            {
+                AddFilePathIfChanged(item, projectName, PostReview.ChangeType.Added);
+            }
+        }
+
+        void projectTracker_FileRenamed(object sender, ProjectDocumentsListener.ProjectItemsRenameEventArgs e)
+        {
+            string projectName = GetProjectName(e.Project);
+            foreach (ProjectDocumentsListener.ProjectItemsRenameEventArgs.RenamedItem item in e.Items)
+            {
+                AddFilePathIfChanged(item.PathOld, projectName, PostReview.ChangeType.Deleted);
+                AddFilePathIfChanged(item.PathNew, projectName, PostReview.ChangeType.Copied);
+            }
+        }
+
+        void projectTracker_FileRemoved(object sender, ProjectDocumentsListener.ProjectItemsAddRemoveEventArgs e)
+        {
+            string projectName = GetProjectName(e.Project);
+            foreach (string item in e.Items)
+            {
+                AddFilePathIfChanged(item, projectName, PostReview.ChangeType.Deleted);
+            }
+        }
+        
+        #endregion Project event handlers
+
+        #region File event handlers
+
+        void fileTracker_OnFilesChanged(uint cChanges, string[] rgpszFile, uint[] rggrfChange)
+        {
+            try
+            {
+                MyLog.DebugEnter(this, "OnFilesChanged(" + cChanges + ", " + rgpszFile + ", " + rggrfChange + ")");
+
+                foreach (string filepath in rgpszFile)
+                {
+                    AddFilePathIfChanged(filepath);
+                }
+            }
+            finally
+            {
+                MyLog.DebugLeave(this, "OnFilesChanged(" + cChanges + ", " + rgpszFile + ", " + rggrfChange + ")");
+            }
+        }
+
+        #endregion File event handlers
 
         #region crawler method(s)
 
@@ -607,7 +670,7 @@ namespace ReviewBoardVsx.Package.Tracker
                 //
                 if (Guid.Equals(guidTypeNode, VSConstants.GUID_ItemType_PhysicalFile))
                 {
-                    AddFilePathIfChanged(itemName, rootName);
+                    AddFilePathIfChanged(itemName, rootName, PostReview.ChangeType.Unknown);
                 }
                 else if (itemId == VSConstants.VSITEMID_ROOT)
                 {
@@ -630,7 +693,7 @@ namespace ReviewBoardVsx.Package.Tracker
                             }
                         }
 
-                        AddFilePathIfChanged(projectFile, rootName);
+                        AddFilePathIfChanged(projectFile, rootName, PostReview.ChangeType.Unknown);
                     }
                     else
                     {
@@ -642,7 +705,7 @@ namespace ReviewBoardVsx.Package.Tracker
                             string solutionDirectory, solutionFile, solutionUserOptions;
                             ErrorHandler.ThrowOnFailure(solution.GetSolutionInfo(out solutionDirectory, out solutionFile, out solutionUserOptions));
 
-                            AddFilePathIfChanged(solutionFile, rootName);
+                            AddFilePathIfChanged(solutionFile, rootName, PostReview.ChangeType.Unknown);
                         }
                         else
                         {
@@ -685,7 +748,114 @@ namespace ReviewBoardVsx.Package.Tracker
             }
         }
 
-/*
+        #endregion crawler method(s)
+
+        /// <summary>
+        /// This method is called directly from the solution crawler and any solution/project file add/rename/remove events.
+        /// It is also called via AddFilePathIfChanged(string filePath) when a file is saved outside of the context of a solution/project.
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="project"></param>
+        /// <returns></returns>
+        public void AddFilePathIfChanged(string filePathOs, string project, PostReview.ChangeType knownChangeType)
+        {
+            try
+            {
+                MyLog.DebugEnter(this, "AddFilePathIfChanged(\"" + filePathOs + "\", \"" + project + "\", " + knownChangeType + ")");
+
+                if (String.IsNullOrEmpty(filePathOs))
+                {
+                    throw new ArgumentNullException(filePathOs, "filePath cannot be null/empty");
+                }
+
+                // Some SCCs are case sensitive; get the *exact* file case (or null if it does not exist)
+                string filePathScc = MyUtils.GetCasedPath(filePathOs);
+                if (String.IsNullOrEmpty(filePathScc))
+                {
+                    switch (knownChangeType)
+                    {
+                        case PostReview.ChangeType.Deleted:
+                            // If knownChangeType == Deleted then trust that the casing is already correct.
+                            filePathScc = filePathOs;
+                            break;
+                        case PostReview.ChangeType.Unknown:
+                        case PostReview.ChangeType.Added:
+                            // knownChangeType == Added during the Solution crawl and Solution/Project file adds.
+                            // If we got this far then the VS *Solution/Project* says there is a file.
+                            // But, the file can be an external/virtual/symbolic link/reference, not an actual file.
+                            // If GetCasedFilePath returned null then this file does not exist.
+                            // Ignore this situation and just continue the enumeration.
+                            Debug.WriteLine("File \"" + filePathOs + "\" does not exist; ignoring.");
+                            return;
+                        default:
+                            throw new FileNotFoundException("Could not get true cased filename needed for SCC.", filePathOs);
+                    }
+                }
+
+                if (BackgroundInitialSolutionCrawl != null && BackgroundInitialSolutionCrawl.IsBusy)
+                {
+                    // Percent is currently always 0, since our progress is indeterminate
+                    // TODO:(pv) Find some way to determine # of nodes in tree *before* processing
+                    //      Maybe do a quick first pass w/ no post-review?
+                    // NOTE:(pv) I did once have the debugger halt here complaining invalid state that the form is not active
+                    BackgroundInitialSolutionCrawl.ReportProgress(0, filePathScc);
+                }
+
+                string diff;
+                PostReview.ChangeType changeType = PostReview.DiffFile(BackgroundInitialSolutionCrawl, filePathScc, out diff);
+
+                // If the change type is known by the caller, use it.
+                // Otherwise, use the type determined by the PostReview.DiffFile(...)
+                if (knownChangeType != PostReview.ChangeType.Unknown)
+                {
+                    changeType = knownChangeType;
+                }
+
+                filePathOs = filePathOs.ToLower();
+
+                switch (changeType)
+                {
+                    case PostReview.ChangeType.Added:
+                    case PostReview.ChangeType.Copied:
+                    case PostReview.ChangeType.Deleted:
+                    case PostReview.ChangeType.Modified:
+                        PostReview.SubmitItem change = new PostReview.SubmitItem(filePathScc, project, changeType, diff);
+                        lock (changes)
+                        {
+                            changes[filePathOs] = change;
+                        }
+                        break;
+                    case PostReview.ChangeType.External:
+                    case PostReview.ChangeType.Normal:
+                    case PostReview.ChangeType.Unknown:
+                    default:
+                        // ignore
+                        break;
+                }
+
+                if (changeType == PostReview.ChangeType.Deleted)
+                {
+                    // Stop tracking the file for changes.
+                    fileTracker.Unsubscribe(filePathOs, true);
+                }
+                else
+                {
+                    // Track the file for *future* changes, even if there are no *current* changes.
+                    // This is a no-op if the path is already being tracked.
+                    fileTracker.Subscribe(filePathOs, true);
+                }
+
+                // Map the file path to the project so that future file changes can find out what project the file is in given just the file path.
+                // This will overwrite any existing value...which seems fine for now.
+                mapItemProjectNames[filePathOs] = project;
+            }
+            finally
+            {
+                MyLog.DebugLeave(this, "AddFilePathIfChanged(\"" + filePathOs + "\", \"" + project + "\", " + knownChangeType + ")");
+            }
+        }
+
+#if false
         private string GetSolutionName()
         {
             IVsHierarchy hierarchy = Solution as IVsHierarchy;
@@ -693,10 +863,11 @@ namespace ReviewBoardVsx.Package.Tracker
             ErrorHandler.ThrowOnFailure(hierarchy.GetProperty(VSConstants.VSITEMID_ROOT, (int)__VSHPROPID.VSHPROPID_Name, out solutionName));
             return solutionName as string;
         }
-*/
+#endif
 
         /// <summary>
-        /// If project==null then gets the Solution name
+        /// Called by MyProjectTracker to get the name of the event's project.
+        /// If project==null then gets the Solution name.
         /// </summary>
         /// <param name="project"></param>
         /// <returns></returns>
@@ -740,87 +911,7 @@ namespace ReviewBoardVsx.Package.Tracker
         {
             // TODO:(pv) If this ever produces invalid/false results, search all solution projects for the filePath.
             string projectName = FindItemProjectName(filePath, false);
-            AddFilePathIfChanged(filePath, projectName);
+            AddFilePathIfChanged(filePath, projectName, PostReview.ChangeType.Modified);
         }
-
-        /// <summary>
-        /// This method is called directly from the solution crawler and any solution/project file add/rename/remove events.
-        /// It is also called via AddFilePathIfChanged(string filePath) when a file is saved outside of the context of a solution/project.
-        /// </summary>
-        /// <param name="filePath"></param>
-        /// <param name="project"></param>
-        /// <returns></returns>
-        public void AddFilePathIfChanged(string filePath, string project)
-        {
-            try
-            {
-                MyLog.DebugEnter(this, "AddFilePathIfChanged(\"" + filePath + "\", \"" + project + "\")");
-
-                filePath = MyUtils.GetCasedFilePath(filePath);
-                if (String.IsNullOrEmpty(filePath))
-                {
-                    // If we got this far then the *Solution* says there is a file.
-                    // However, the file can be an external/symbolic link/reference, not an actual file.
-                    // Ignore this situation and just continue the enumeration.
-                    return;
-                }
-
-                if (BackgroundInitialSolutionCrawl != null && BackgroundInitialSolutionCrawl.IsBusy)
-                {
-                    // Percent is currently always 0, since our progress is indeterminate
-                    // TODO:(pv) Find some way to determine # of nodes in tree *before* processing
-                    //      Maybe do a quick first pass w/ no post-review?
-                    // NOTE:(pv) I did once have the debugger halt here complaining invalid state that the form is not active
-                    BackgroundInitialSolutionCrawl.ReportProgress(0, filePath);
-                }
-
-                string diff;
-                PostReview.DiffType diffType = PostReview.DiffFile(filePath, out diff);
-
-                switch (diffType)
-                {
-                    case PostReview.DiffType.Added:
-                    case PostReview.DiffType.Changed:
-                    case PostReview.DiffType.Modified:
-                        PostReview.SubmitItem change = new PostReview.SubmitItem(filePath, project, diffType, diff);
-                        lock (changes)
-                        {
-                            changes.Add(change);
-                        }
-                        break;
-                    case PostReview.DiffType.External:
-                        // TODO:(pv) Even add External items?
-                        // Doesn't make much sense, since they won't diff during post-review.exe submit.
-                        // Maybe could add them and group them at bottom as disabled.
-                        // This also doesn't make sense, since it assumes post-review has ability to add files to SCM.
-                        break;
-                    case PostReview.DiffType.Normal:
-                        // TODO:(pv) Even add normal items?
-                        // Doesn't make much sense, since they won't diff during post-review.exe submit.
-                        // Maybe could add them and group them at bottom as disabled.
-                        // This also doesn't make sense, since it assumes post-review has ability to add files to SCM.
-                        break;
-                    default:
-                        string message = String.Format("Unhandled DiffType={0}", diffType);
-                        throw new ArgumentOutOfRangeException("diffType", message);
-                }
-
-                filePath = filePath.ToLower();
-
-                // *Always* track the file for *future* changes, even if there are no *current* changes.
-                // This is a no-op if the path is already being tracked.
-                fileTracker.Subscribe(filePath, true);
-
-                // Map the file path to a project so that future file changes can find out what project the file is in given just the file path.
-                // This will overwrite any existing value...which seems fine for now.
-                mapItemProjectNames[filePath] = project;
-            }
-            finally
-            {
-                MyLog.DebugLeave(this, "AddFilePathIfChanged(\"" + filePath + "\", \"" + project + "\")");
-            }
-        }
-
-        #endregion crawler method(s)
     }
 }
