@@ -334,6 +334,8 @@ namespace ReviewBoardVsx.Package
             {
                 argumentsBuilder.Append("--review-request-id=").Append(reviewId).Append(" ");
             }
+
+            // TODO:(pv) Provide or discover common root and remove common root from path names
             for (int i = 0; i < changes.Count; i++)
             {
                 if (i > 0)
