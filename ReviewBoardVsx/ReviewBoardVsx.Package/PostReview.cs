@@ -101,27 +101,46 @@ namespace ReviewBoardVsx.Package
             return output;
         }
 
-        public enum DiffType
+        public class ReviewableAttribute : Attribute
         {
-            Normal,
-            Added,
-            Changed,
+            public readonly bool Reviewable;
+
+            public ReviewableAttribute(bool reviewable)
+            {
+                Reviewable = reviewable;
+            }
+        }
+
+        public enum ChangeType
+        {
+            [Reviewable(true)]
             Modified,
+            [Reviewable(true)]
+            Added,
+            [Reviewable(true)]
+            Copied,
+            [Reviewable(true)]
+            Deleted,
+            [Reviewable(false)]
+            Normal,
+            [Reviewable(false)]
             External,
+            [Reviewable(false)]
+            Unknown,
         }
 
         public class SubmitItem
         {
             public string FullPath { get; protected set; }
             public string Project { get; protected set; }
-            public DiffType DiffType { get; protected set; }
+            public ChangeType ChangeType { get; protected set; }
             public string Diff { get; protected set; }
 
-            public SubmitItem(string fullPath, string project, DiffType diffType, string diff)
+            public SubmitItem(string fullPath, string project, ChangeType changeType, string diff)
             {
                 FullPath = fullPath;
                 Project = project;
-                DiffType = diffType;
+                ChangeType = changeType;
                 Diff = diff;
             }
         }
@@ -143,19 +162,24 @@ namespace ReviewBoardVsx.Package
 
         #region DiffFile
 
-        public static DiffType DiffFile(string path, out string diff)
+        /// <summary>
+        /// The path does not actually have to exist (ex: SCC delete/move/rename).
+        /// The returned SCC diff output will indicate if there was an error with the path.
+        /// </summary>
+        /// <param name="path"></param>
+        /// <param name="diff"></param>
+        /// <returns></returns>
+        public static ChangeType DiffFile(BackgroundWorker worker, string path, out string diff)
         {
             if (String.IsNullOrEmpty(path))
             {
                 throw new PostReviewException("PostReview.DiffFile", new ArgumentNullException("path"));
             }
 
-            if (!File.Exists(path))
-            {
-                throw new PostReviewException("PostReview.DiffFile", new FileNotFoundException(path));
-            }
-
             string directory = Path.GetDirectoryName(path);
+
+            // Shorten the path name, just because we can
+            path = path.Replace(directory + "\\", "");
 
             string stdout;
             string stderr;
@@ -163,7 +187,7 @@ namespace ReviewBoardVsx.Package
 
             try
             {
-                exitCode = MyUtils.ExecCommand(null, PostReviewExe, "-n --server=DUMMY " + path, directory, out stdout, out stderr);
+                exitCode = MyUtils.ExecCommand(worker, PostReviewExe, "-n --server=DUMMY " + path, directory, out stdout, out stderr);
             }
             catch (Exception e)
             {
@@ -174,20 +198,20 @@ namespace ReviewBoardVsx.Package
             stdout = TrimOutput(stdout);
             stderr = TrimOutput(stderr);
 
-            DiffType diffType;
+            ChangeType changeType;
 
             switch (exitCode)
             {
                 case 0:
                     if (String.IsNullOrEmpty(stdout))
                     {
-                        diffType = DiffType.Normal;
+                        changeType = ChangeType.Normal;
                         diff = null;
                     }
                     else
                     {
                         // TODO:(pv) Parse diff and determine if Change, Modified, Added (etc?)
-                        diffType = DiffType.Changed;
+                        changeType = ChangeType.Modified;
                         diff = stdout;
                     }
                     break;
@@ -200,7 +224,7 @@ namespace ReviewBoardVsx.Package
                         goto default;
                     }
 
-                    diffType = DiffType.External;
+                    changeType = ChangeType.External;
                     diff = null;
                     break;
 
@@ -209,7 +233,7 @@ namespace ReviewBoardVsx.Package
                     throw new PostReview.PostReviewException(message, exitCode, stdout, stderr);
             }
 
-            return diffType;
+            return changeType;
         }
 
         #endregion DiffFile

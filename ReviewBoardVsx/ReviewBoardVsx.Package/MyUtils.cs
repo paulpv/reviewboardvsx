@@ -80,7 +80,7 @@ namespace ReviewBoardVsx.Package
         /// </summary>
         /// <param name="fullPath"></param>
         /// <returns></returns>
-        public static string GetCasedFilePath(string fullPath)
+        public static string GetCasedPath(string fullPath)
         {
             if (String.IsNullOrEmpty(fullPath))
             {
@@ -151,6 +151,39 @@ namespace ReviewBoardVsx.Package
                 return null;
             }
 
+            //
+            // Some alternative implementations:
+            // http://www.koders.com/csharp/fidC7787299DBAD068ED35F524B7415E1FF82FC43E8.aspx?s=listview
+            // http://rosettacode.org/wiki/Find_common_directory_path
+            //
+#if false
+            string commonPath = String.Empty;
+            //string separator = Char.ToString(Path.DirectorySeparatorChar);
+            char separator = Path.DirectorySeparatorChar;
+
+			List<string> SeparatedPath = paths
+				.First ( str => str.Length == paths.Max ( st2 => st2.Length ) )
+                .Split ( new char[] { separator }, StringSplitOptions.RemoveEmptyEntries )
+				.ToList ( );
+ 
+			foreach ( string PathSegment in SeparatedPath.AsEnumerable ( ) )
+			{
+				if ( commonPath.Length == 0 && paths.All ( str => str.StartsWith ( PathSegment ) ) )
+				{
+					commonPath = PathSegment;
+				}
+				else if ( paths.All ( str => str.StartsWith ( commonPath + separator + PathSegment ) ) )
+				{
+					commonPath += separator + PathSegment;
+				}
+				else
+				{
+					break;
+				}
+			}
+ 
+			return commonPath;
+#else
             string x;
 
             if (xs.Length == 1)
@@ -172,6 +205,7 @@ namespace ReviewBoardVsx.Package
             }
 
             return x;
+#endif
         }
 
         public static bool IsOnScreen(Rectangle rect)
@@ -320,11 +354,14 @@ namespace ReviewBoardVsx.Package
             // Per: http://msdn.microsoft.com/en-us/library/system.diagnostics.processstartinfo.arguments.aspx
             if ((fileName.Length + arguments.Length) >= 2080)
             {
+                // TODO:(pv) Modify post-review.exe to add a text file argument that lists filenames to process.
                 throw new ArgumentException("(fileName + arguments) maximum length must be less tha 2080");
             }
 
             stdout = null;
             stderr = null;
+
+            Debug.WriteLine("ExecCommand: \"" + workingDirectory + "\">\"" + fileName + "\" " + arguments);
 
             ProcessStartInfo psi = new ProcessStartInfo(fileName, arguments);
             psi.WorkingDirectory = workingDirectory;
