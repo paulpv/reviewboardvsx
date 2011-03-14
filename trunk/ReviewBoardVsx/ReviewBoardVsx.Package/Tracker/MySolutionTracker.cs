@@ -83,6 +83,22 @@ namespace ReviewBoardVsx.Package.Tracker
             }
         }
 
+        protected void InitializeProjectAndFileTrackers()
+        {
+            DisposeProjectAndFileTrackers();
+
+            // Subscribe to Project events
+            projectTracker = new ProjectDocumentsListener(this.ServiceProvider);
+            projectTracker.FileAdded += projectTracker_FileAdded;
+            projectTracker.FileRenamed += projectTracker_FileRenamed;
+            projectTracker.FileRemoved += projectTracker_FileRemoved;
+            projectTracker.Initialize();
+
+            // Each file encountered during the crawl will be separately tracked for future changes.
+            fileTracker = new FileChangeListener(this.ServiceProvider);
+            fileTracker.OnFilesChanged += fileTracker_OnFilesChanged;
+        }
+
         protected void DisposeProjectAndFileTrackers()
         {
                 if (fileTracker != null)
@@ -145,7 +161,7 @@ namespace ReviewBoardVsx.Package.Tracker
             }
         }
 
-        #region Solution event handlers
+        #region Solution/Project open/close/rename event handlers
 
         public override int OnAfterOpenSolution(object pUnkReserved, int fNewSolution)
         {
@@ -153,18 +169,16 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 MyLog.DebugEnter(this, "OnAfterOpenSolution(" + pUnkReserved + ", " + fNewSolution + ")");
 
-                DisposeProjectAndFileTrackers();
+                InitializeProjectAndFileTrackers();
 
-                // Subscribe to Project events
-                projectTracker = new ProjectDocumentsListener(this.ServiceProvider);
-                projectTracker.FileAdded += projectTracker_FileAdded;
-                projectTracker.FileRenamed += projectTracker_FileRenamed;
-                projectTracker.FileRemoved += projectTracker_FileRemoved;
-                projectTracker.Initialize();
-
-                // Each file encountered during the crawl will be separately tracked for future changes.
-                fileTracker = new FileChangeListener(this.ServiceProvider);
-                fileTracker.OnFilesChanged += fileTracker_OnFilesChanged;
+                // TODO:(pv) We also need for post-review to support "SCC stat" so that we can discover changes
+                // that aren't seen in the VS Solution.
+                // ex: A renamed file is actually a SCC delete and a SCC copy (to use SVN lingo).
+                // In fact, if post-review supported SCC stat then this whole app *might* be a little simpler.
+                // We cannot discover a deleted file (or even a copied file) without some post-review hook in to SCC.
+                // Maybe there is a VS hook in to SCC status? This would limit post-review to requiring a VS plugin.
+                // TODO:(pv) Attempt to fake this by running "post-review --output-diff" in each folder.
+                // This wont really work well for C++ projects with "Filter" folders.
 
                 // TODO:(pv) What if another crawl is already running?
                 BackgroundInitialSolutionCrawl.RunWorkerAsync();
@@ -235,7 +249,7 @@ namespace ReviewBoardVsx.Package.Tracker
             try
             {
                 MyLog.DebugEnter(this, "OnAfterOpenProject(" + hierarchy + ", " + added + ")");
-                // TODO:(pv) Start crawling the project items
+                // TODO:(pv) Start crawling the project items?
                 return VSConstants.S_OK;
             }
             finally
@@ -249,7 +263,7 @@ namespace ReviewBoardVsx.Package.Tracker
             try
             {
                 MyLog.DebugEnter(this, "OnAfterRenameProject(" + hierarchy + ")");
-                // TODO:(pv) Rename the project item
+                // TODO:(pv) Rename the project item?
                 return VSConstants.S_OK;
             }
             finally
@@ -436,9 +450,38 @@ namespace ReviewBoardVsx.Package.Tracker
             }
         }
 
-        #endregion Solution event handlers
+        #endregion Solution/Project open/close/rename event handlers
 
-        #region Project event handlers
+        #region Project file added/renamed/removed event handlers
+
+#if false
+        private string GetSolutionName()
+        {
+            IVsHierarchy hierarchy = Solution as IVsHierarchy;
+            object solutionName;
+            ErrorHandler.ThrowOnFailure(hierarchy.GetProperty(VSConstants.VSITEMID_ROOT, (int)__VSHPROPID.VSHPROPID_Name, out solutionName));
+            return solutionName as string;
+        }
+#endif
+
+        /// <summary>
+        /// Called by MyProjectTracker to get the name of the event's project.
+        /// If project==null then gets the Solution name.
+        /// </summary>
+        /// <param name="project"></param>
+        /// <returns></returns>
+        public string GetProjectName(IVsProject project)
+        {
+            if (project == null)
+            {
+                return Resources.RootSolution; // GetSolutionName();
+            }
+
+            IVsSolution3 solution = Solution as IVsSolution3;
+            string projectName = null;
+            ErrorHandler.ThrowOnFailure(solution.GetUniqueUINameOfProject((IVsHierarchy)project, out projectName));
+            return projectName;
+        }
 
         void projectTracker_FileAdded(object sender, ProjectDocumentsListener.ProjectItemsAddRemoveEventArgs e)
         {
@@ -467,20 +510,47 @@ namespace ReviewBoardVsx.Package.Tracker
                 AddFilePathIfChanged(item, projectName, PostReview.ChangeType.Deleted);
             }
         }
-        
-        #endregion Project event handlers
 
-        #region File event handlers
+        #endregion Project file added/renamed/removed event handlers
 
+        #region File changed event handlers
+
+        private string FindItemProjectName(string itemPath, bool prelowered)
+        {
+            if (!prelowered)
+            {
+                itemPath = itemPath.ToLower();
+            }
+            string projectName;
+            if (mapItemProjectNames.TryGetValue(itemPath, out projectName))
+            {
+                return projectName;
+            }
+            return Resources.RootUnknown;
+        }
+
+        /// <summary>
+        /// This method is called when a file is saved outside of the context of a solution/project.
+        /// When this happens we need to look up the file's solution/project.
+        /// A file with a project==null means it is a solution file.
+        /// 
+        /// NOTE that this *could* possibly give a false/invalid result if mapItemProjectNames gets out of sync.
+        /// Hopefully the collective code prevents that from ever happening.
+        /// </summary>
+        /// <param name="cChanges"></param>
+        /// <param name="rgpszFile"></param>
+        /// <param name="rggrfChange"></param>
         void fileTracker_OnFilesChanged(uint cChanges, string[] rgpszFile, uint[] rggrfChange)
         {
             try
             {
                 MyLog.DebugEnter(this, "OnFilesChanged(" + cChanges + ", " + rgpszFile + ", " + rggrfChange + ")");
-
-                foreach (string filepath in rgpszFile)
+                string projectName;
+                foreach (string filePath in rgpszFile)
                 {
-                    AddFilePathIfChanged(filepath);
+                    // TODO:(pv) If this ever produces invalid/false results, search all solution projects for the filePath.
+                    projectName = FindItemProjectName(filePath, false);
+                    AddFilePathIfChanged(filePath, projectName, PostReview.ChangeType.Modified);
                 }
             }
             finally
@@ -489,7 +559,7 @@ namespace ReviewBoardVsx.Package.Tracker
             }
         }
 
-        #endregion File event handlers
+        #endregion File changed event handlers
 
         #region crawler method(s)
 
@@ -853,65 +923,6 @@ namespace ReviewBoardVsx.Package.Tracker
             {
                 MyLog.DebugLeave(this, "AddFilePathIfChanged(\"" + filePathOs + "\", \"" + project + "\", " + knownChangeType + ")");
             }
-        }
-
-#if false
-        private string GetSolutionName()
-        {
-            IVsHierarchy hierarchy = Solution as IVsHierarchy;
-            object solutionName;
-            ErrorHandler.ThrowOnFailure(hierarchy.GetProperty(VSConstants.VSITEMID_ROOT, (int)__VSHPROPID.VSHPROPID_Name, out solutionName));
-            return solutionName as string;
-        }
-#endif
-
-        /// <summary>
-        /// Called by MyProjectTracker to get the name of the event's project.
-        /// If project==null then gets the Solution name.
-        /// </summary>
-        /// <param name="project"></param>
-        /// <returns></returns>
-        public string GetProjectName(IVsProject project)
-        {
-            if (project == null)
-            {
-                return Resources.RootSolution; // GetSolutionName();
-            }
-
-            IVsSolution3 solution = Solution as IVsSolution3;
-            string projectName = null;
-            ErrorHandler.ThrowOnFailure(solution.GetUniqueUINameOfProject((IVsHierarchy)project, out projectName));
-            return projectName;
-        }
-
-        private string FindItemProjectName(string itemPath, bool prelowered)
-        {
-            if (!prelowered)
-            {
-                itemPath = itemPath.ToLower();
-            }
-            string projectName;
-            if (mapItemProjectNames.TryGetValue(itemPath, out projectName))
-            {
-                return projectName;
-            }
-            return Resources.RootUnknown;
-        }
-
-        /// <summary>
-        /// This method is called when a file is saved outside of the context of a solution/project.
-        /// When this happens we need to look up the file's solution/project.
-        /// A file with a project==null means it is a solution file.
-        /// 
-        /// NOTE that this *could* possibly give a false/invalid result if mapItemProjectNames gets out of sync.
-        /// Hopefully the collective code prevents that from ever happening.
-        /// </summary>
-        /// <param name="filePath"></param>
-        public void AddFilePathIfChanged(string filePath)
-        {
-            // TODO:(pv) If this ever produces invalid/false results, search all solution projects for the filePath.
-            string projectName = FindItemProjectName(filePath, false);
-            AddFilePathIfChanged(filePath, projectName, PostReview.ChangeType.Modified);
         }
     }
 }
