@@ -1,6 +1,6 @@
 ﻿<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
   <?ifndef packageVersion ?>
-  <?define packageVersion=0.1.0.1 ?>
+  <?define packageVersion=0.5.1.0 ?>
   <?endif?>
   <Fragment>
     <ComponentGroup Id="ReviewBoardVsx.Package">

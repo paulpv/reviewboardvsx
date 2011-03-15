@@ -494,6 +494,8 @@ namespace ReviewBoardVsx.Package.Tracker
 
         void projectTracker_FileRenamed(object sender, ProjectDocumentsListener.ProjectItemsRenameEventArgs e)
         {
+            // TODO:(pv) post-review doesn't seem to honor straight renames. :(
+
             string projectName = GetProjectName(e.Project);
             foreach (ProjectDocumentsListener.ProjectItemsRenameEventArgs.RenamedItem item in e.Items)
             {

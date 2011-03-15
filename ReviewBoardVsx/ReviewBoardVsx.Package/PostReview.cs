@@ -348,14 +348,6 @@ namespace ReviewBoardVsx.Package
             string workingDirectory = MyUtils.GetCommonRoot(changes);
             string arguments = argumentsBuilder.ToString();
 
-            StringBuilder commandLine = new StringBuilder();
-            commandLine.Append(workingDirectory).Append('>').Append(PostReviewExe);
-            if (!String.IsNullOrEmpty(arguments))
-            {
-                commandLine.Append(' ').Append(arguments);
-            }
-            MyPackage.OutputGeneral("Running: " + commandLine);
-
             string stdout;
             string stderr;
             int exitCode;
