@@ -361,7 +361,13 @@ namespace ReviewBoardVsx.Package
             stdout = null;
             stderr = null;
 
-            Debug.WriteLine("ExecCommand: \"" + workingDirectory + "\">\"" + fileName + "\" " + arguments);
+            StringBuilder commandLine = new StringBuilder();
+            commandLine.Append(workingDirectory).Append('>').Append(fileName);
+            if (!String.IsNullOrEmpty(arguments))
+            {
+                commandLine.Append(' ').Append(arguments);
+            }
+            Debug.WriteLine("ExecCommand: " + commandLine);
 
             ProcessStartInfo psi = new ProcessStartInfo(fileName, arguments);
             psi.WorkingDirectory = workingDirectory;
